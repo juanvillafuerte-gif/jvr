@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archivo Maestro de Sitios Quartux · Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0e1820; --ink2:#16242f; --panel:#ffffff; --bg:#eef2f3;
+    --teal:#0bb39a; --teal-d:#0a8f7d; --line:#dce3e5; --muted:#6c7a82; --txt:#10212b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);line-height:1.5}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 20px 80px}
+
+  header{background:linear-gradient(135deg,var(--ink) 0%,var(--ink2) 100%);color:#fff;padding:26px 0 32px;position:relative;overflow:hidden}
+  header::after{content:"";position:absolute;right:-60px;top:-40px;width:260px;height:260px;border-radius:50%;
+    background:radial-gradient(circle,rgba(11,179,154,.25),transparent 70%)}
+  .hwrap{max-width:1280px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+  .hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:46px;height:46px;border-radius:11px;background:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:0 0 0 4px rgba(11,179,154,.18)}
+  .logo svg{width:26px;height:26px}
+  header h1{font-size:24px;font-weight:700;letter-spacing:-.4px}
+  header .sub{color:#9fb2bb;font-size:13.5px;margin-top:3px}
+  .source{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    border-radius:999px;padding:7px 14px;font-family:'Space Grotesk';font-size:12.5px;font-weight:500;color:#cdd9de}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px rgba(11,179,154,.25)}
+  .hbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .hbtn{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#e8eef0;border-radius:9px;
+    padding:7px 13px;font-family:'Space Grotesk';font-weight:600;font-size:12.5px;cursor:pointer;transition:.15s}
+  .hbtn:hover{background:rgba(255,255,255,.14)}
+  .hbtn.primary{background:var(--teal);border-color:var(--teal);color:#04221d}
+
+  /* Tabs de vista */
+  .tabs{display:flex;gap:8px;background:rgba(255,255,255,.08);padding:5px;border-radius:11px;margin-top:18px;width:max-content;max-width:100%}
+  .tabs button{background:transparent;color:#cdd9de;border:none;padding:8px 18px;border-radius:8px;font-family:'Space Grotesk';
+    font-weight:600;font-size:13.5px;cursor:pointer;transition:.15s;white-space:nowrap}
+  .tabs button.active{background:var(--teal);color:#04221d}
+
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:-26px;position:relative;z-index:3}
+  .kpi{background:var(--panel);border-radius:14px;padding:15px 15px 13px;box-shadow:0 6px 22px rgba(14,24,32,.10);border:1px solid var(--line)}
+  .kpi .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600}
+  .kpi .val{font-family:'Space Grotesk';font-size:24px;font-weight:700;margin-top:6px;letter-spacing:-.5px;color:var(--ink)}
+  .kpi .val small{font-size:13px;font-weight:600;color:var(--muted)}
+  .kpi .note{font-size:11px;color:var(--muted);margin-top:3px}
+
+  section{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-top:22px;overflow:hidden}
+  .sec-h{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .sec-h h2{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .eyebrow{display:inline-block;width:4px;height:18px;border-radius:2px;background:var(--teal)}
+  .sec-h .r{font-size:12px;color:var(--muted)}
+  .sec-b{padding:20px 22px}
+
+  /* Vistas: solo se muestran las secciones de la vista activa */
+  section[data-view]{display:none}
+  body[data-view="ejec"] section[data-view~="ejec"],
+  body[data-view="pipe"] section[data-view~="pipe"],
+  body[data-view="tec"]  section[data-view~="tec"],
+  section[data-view~="all"]{display:block}
+
+  .filtros{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap}
+  .fg label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{border:1.5px solid var(--line);background:#fff;color:var(--txt);padding:6px 13px;border-radius:999px;font-size:12.5px;font-weight:500;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .pill:hover{border-color:var(--teal)}
+  .pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .pill .fdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .clear{margin-left:auto;background:none;border:none;color:var(--teal-d);font-weight:600;font-size:13px;cursor:pointer}
+
+  .qchips{display:flex;gap:9px;flex-wrap:wrap}
+  .qchip{border:1.5px solid var(--line);background:#fff;padding:7px 13px;border-radius:999px;font-size:12.5px;
+    font-weight:500;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:8px;font-family:'Inter'}
+  .qchip:hover{border-color:var(--teal)}
+  .qchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .qchip .qdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .qchip.ok{cursor:default;color:var(--muted)}
+  .qchip.ok:hover{border-color:var(--line)}
+  .qchip b{font-family:'Space Grotesk'}
+  .maplink{text-decoration:none;font-size:15px}
+
+  #map{height:440px;width:100%}
+  .charts2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .charts2.w{grid-template-columns:1.4fr 1fr}
+  .chartbox{min-height:300px;position:relative}
+  .chartwide{min-height:300px;position:relative}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{text-align:left;padding:10px 9px;border-bottom:2px solid var(--line);font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--panel)}
+  thead th.num,td.num{text-align:right}
+  tbody td{padding:10px 9px;border-bottom:1px solid #eef2f3;vertical-align:middle;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  tbody tr:hover{background:#f7fafa}
+  tfoot td{padding:11px 9px;font-weight:700;font-family:'Space Grotesk';border-top:2px solid var(--line);white-space:nowrap}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+  .badge .dot{width:7px;height:7px;border-radius:50%}
+  .pname{font-weight:600;color:var(--ink)}
+  .searchbar input{border:1.5px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13.5px;font-family:'Inter';width:240px;max-width:48vw}
+  .tablescroll{overflow:auto;max-height:640px}
+
+  footer.note{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
+
+  @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}.charts2,.charts2.w{grid-template-columns:1fr}}
+  @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}header h1{font-size:20px}table{min-width:1100px}}
+</style>
+</head>
+<body data-view="ejec">
+
+<header>
+  <div class="hwrap">
+    <div class="hrow">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M7 2h7l-2 7h4l-9 13 2-9H6l1-11z" fill="#04221d"/></svg>
+        </div>
+        <div>
+          <h1>Archivo Maestro de Sitios</h1>
+          <div class="sub">Quartux · portafolio completo de proyectos BESS</div>
+        </div>
+      </div>
+      <div class="source">
+        <span class="chip"><span class="dot"></span><span id="src-txt">Cargando…</span></span>
+        <div class="hbtns">
+          <button class="hbtn" onclick="downloadPDF()">📄 Descargar PDF</button>
+          <button class="hbtn primary" onclick="document.getElementById('csvfile').click()">📥 Importar Master Data (CSV)</button>
+          <button class="hbtn" onclick="exportCSV()">Exportar vista (CSV)</button>
+        </div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button id="tab-ejec" class="active" onclick="setView('ejec')">🎯 Ejecutivo</button>
+      <button id="tab-pipe" onclick="setView('pipe')">🔀 Pipeline</button>
+      <button id="tab-tec" onclick="setView('tec')">⚙️ Técnico</button>
+    </div>
+  </div>
+</header>
+<input type="file" id="csvfile" accept=".csv,text/csv" style="display:none" onchange="importCSV(event)">
+
+<div class="wrap">
+
+  <div class="kpis" id="kpis"></div>
+
+  <section data-view="all">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Filtros</h2></div>
+    <div class="sec-b">
+      <div class="filtros">
+        <div class="fg"><label>Fase (Área responsable)</label><div class="pills" id="f-fase"></div></div>
+        <div class="fg"><label>Zona</label><div class="pills" id="f-zona"></div></div>
+        <div class="fg"><label>Tipo</label><div class="pills" id="f-tipo"></div></div>
+        <button class="clear" onclick="clearFilters()">Limpiar filtros</button>
+      </div>
+    </div>
+  </section>
+
+  <section data-view="all">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Salud del Master</h2>
+      <span class="r">Clic en un indicador para ver los proyectos afectados en la tabla</span></div>
+    <div class="sec-b"><div class="qchips" id="quality"></div></div>
+  </section>
+
+  <!-- ===== EJECUTIVO ===== -->
+  <section data-view="ejec">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Mapa de sitios</h2><span class="r" id="map-note">Color = fase · tamaño ∝ capacidad (kWh)</span></div>
+    <div id="map"></div>
+  </section>
+
+  <section data-view="ejec">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Capacidad y mezcla del portafolio</h2></div>
+    <div class="sec-b">
+      <div class="charts2 w">
+        <div class="chartbox"><canvas id="chZona"></canvas></div>
+        <div class="chartbox"><canvas id="chTipo"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-view="ejec">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Proyectos y clientes</h2></div>
+    <div class="sec-b">
+      <div class="charts2 w">
+        <div class="chartbox"><canvas id="chTop"></canvas></div>
+        <div class="chartbox"><canvas id="chGiro"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-view="ejec">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Rampa de capacidad por año (COD)</h2><span class="r">MWh incorporados y acumulado</span></div>
+    <div class="sec-b"><div class="chartwide"><canvas id="chRampa"></canvas></div></div>
+  </section>
+
+  <!-- ===== PIPELINE ===== -->
+  <section data-view="pipe">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Tubo de proyectos por fase</h2><span class="r">Orden de ciclo de vida: Procura → Construcción → Cierre y CAP → O&M</span></div>
+    <div class="sec-b">
+      <div class="charts2">
+        <div class="chartbox"><canvas id="chFaseN"></canvas></div>
+        <div class="chartbox"><canvas id="chFaseE"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===== TÉCNICO ===== -->
+  <section data-view="tec">
+    <div class="sec-h"><h2><span class="eyebrow"></span>Equipos principales</h2><span class="r">Capacidad instalada por marca</span></div>
+    <div class="sec-b">
+      <div class="charts2">
+        <div class="chartbox"><canvas id="chBat"></canvas></div>
+        <div class="chartbox"><canvas id="chInv"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TABLA (todas las vistas) ===== -->
+  <section data-view="all">
+    <div class="sec-h">
+      <h2><span class="eyebrow"></span>Detalle de proyectos</h2>
+      <div class="searchbar"><input id="search" placeholder="Buscar por código, RPU, nombre, ciudad, giro…" oninput="renderTable()"></div>
+    </div>
+    <div class="tablescroll">
+      <table id="ptable">
+        <thead><tr>
+          <th class="num" data-k="num">No.</th>
+          <th data-k="codigo">Código</th>
+          <th data-k="rpu">RPU</th>
+          <th data-k="nombre">Nombre comercial</th>
+          <th data-k="fase">Fase</th>
+          
+          <th data-k="zona">Zona</th>
+          <th data-k="tipo">Tipo</th>
+          <th data-k="giro">Giro</th>
+          <th data-k="ubic">Ubicación</th>
+          <th class="num" data-k="kw">kW</th>
+          <th class="num" data-k="kwh">kWh</th>
+          <th class="num" data-k="demanda">Demanda CFE kW</th>
+          <th class="num" data-k="precio">Precio USD</th>
+          <th data-k="codPlanYM">COD plan</th>
+          <th data-k="codRealYM">COD real</th>
+          <th data-k="bateria">Batería</th>
+          <th data-k="inversor">Inversor</th>
+          <th>Mapa</th>
+        </tr></thead>
+        <tbody id="ptbody"></tbody>
+        <tfoot><tr id="pfoot"></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <footer class="note">
+    Dashboard de solo lectura del <b>Archivo Maestro de Sitios (Master Data)</b>.
+    Para actualizar: exporta la pestaña Master Data como CSV y usa "📥 Importar Master Data".
+  </footer>
+</div>
+
+<script type="application/json" id="qtx-data">{"projects":[{"num":1,"nombre":"Industrias Tamer","codigo":"IT01","rpu":"","demanda":0,"cod":"June 1, 2020","codReal":"6/1/2020","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Fabricación de Herramientas","ciudad":"Tlalnepantla","edo":"Estado de México","zona":"CENTRO","lat":19.52,"lng":-99.209,"kw":30,"kwh":60,"precio":144000,"batMarca":"EnergPort","batModelo":"","racks":1,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS2-30K-NA","invKw":30,"fechaOp":"6/1/2020","ubic":"Tlalnepantla, Estado de México","codPlanY":"2020","codRealY":"2020","codPlanYM":202006,"codRealYM":202006,"codPlanTxt":"jun 2020","codRealTxt":"jun 2020","codY":"2020","bateria":"EnergPort","inversor":"SINEXCEL ×1"},{"num":2,"nombre":"Descamex","codigo":"DX02","rpu":"","demanda":0,"cod":"March 1, 2021","codReal":"4/1/2021","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Descafeinadora","ciudad":"Córdoba","edo":"Veracruz","zona":"CENTRO","lat":18.876,"lng":-96.918,"kw":100,"kwh":100,"precio":111400,"batMarca":"Pylontech","batModelo":"H32148","racks":1,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-2M","invKw":125,"fechaOp":"4/1/2021","ubic":"Córdoba, Veracruz","codPlanY":"2021","codRealY":"2021","codPlanYM":202103,"codRealYM":202104,"codPlanTxt":"mar 2021","codRealTxt":"abr 2021","codY":"2021","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":3,"nombre":"NH Centauro","codigo":"NHC03","rpu":"","demanda":0,"cod":"March 1, 2021","codReal":"4/1/2021","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Suplementos Alimenticios","ciudad":"Irapuato","edo":"Guanajuato","zona":"BAJÍO","lat":20.684,"lng":-101.373,"kw":100,"kwh":200,"precio":144000,"batMarca":"Pylontech","batModelo":"H32148","racks":2,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-2M","invKw":125,"fechaOp":"4/1/2021","ubic":"Irapuato, Guanajuato","codPlanY":"2021","codRealY":"2021","codPlanYM":202103,"codRealYM":202104,"codPlanTxt":"mar 2021","codRealTxt":"abr 2021","codY":"2021","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":4,"nombre":"NH Insurgentes","codigo":"NHI04","rpu":"","demanda":0,"cod":"March 1, 2021","codReal":"4/4/2021","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Suplementos Alimenticios","ciudad":"Irapuato","edo":"Guanajuato","zona":"BAJÍO","lat":20.656,"lng":-101.375,"kw":30,"kwh":70,"precio":46500,"batMarca":"Pylontech","batModelo":"H32148","racks":1,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS2-30K-NA","invKw":30,"fechaOp":"4/4/2021","ubic":"Irapuato, Guanajuato","codPlanY":"2021","codRealY":"2021","codPlanYM":202103,"codRealYM":202104,"codPlanTxt":"mar 2021","codRealTxt":"abr 2021","codY":"2021","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":5,"nombre":"Merco Colinas","codigo":"MC05","rpu":"","demanda":0,"cod":"TBD","codReal":"10/1/2021","fase":"O&M","tipo":"Compra-Venta","giro":"Supermercado","ciudad":"Pesquería","edo":"Nuevo León","zona":"NORTE","lat":25.821,"lng":-100.108,"kw":125,"kwh":270,"precio":0,"batMarca":"Pylontech","batModelo":"H32148","racks":3,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-2M","invKw":125,"fechaOp":"10/1/2021","ubic":"Pesquería, Nuevo León","codPlanY":"","codRealY":"2021","codPlanYM":0,"codRealYM":202110,"codPlanTxt":"","codRealTxt":"oct 2021","codY":"2021","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":6,"nombre":"OMA MZT","codigo":"OM06","rpu":"","demanda":0,"cod":"October 1, 2021","codReal":"10/1/2021","fase":"O&M","tipo":"Compra-Venta","giro":"Aeropuerto","ciudad":"Mazatlán","edo":"Sinaloa","zona":"NORTE","lat":23.167,"lng":-106.271,"kw":500,"kwh":800,"precio":0,"batMarca":"Pylontech","batModelo":"H32148","racks":8,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-2M","invKw":125,"fechaOp":"10/1/2021","ubic":"Mazatlán, Sinaloa","codPlanY":"2021","codRealY":"2021","codPlanYM":202110,"codRealYM":202110,"codPlanTxt":"oct 2021","codRealTxt":"oct 2021","codY":"2021","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":7,"nombre":"Congreso","codigo":"CO07","rpu":"","demanda":0,"cod":"April 1, 2022","codReal":"4/1/2022","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Espacio de gobierno","ciudad":"Venustiano Carranza","edo":"Ciudad de México","zona":"CENTRO","lat":19.43,"lng":-99.118,"kw":800,"kwh":500,"precio":207000,"batMarca":"Narada","batModelo":"-","racks":3,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-4M","invKw":250,"fechaOp":"4/1/2022","ubic":"Venustiano Carranza, Ciudad de México","codPlanY":"2022","codRealY":"2022","codPlanYM":202204,"codRealYM":202204,"codPlanTxt":"abr 2022","codRealTxt":"abr 2022","codY":"2022","bateria":"Narada -","inversor":"SINEXCEL ×1"},{"num":8,"nombre":"Brinco","codigo":"EB08","rpu":"","demanda":0,"cod":"April 1, 2022","codReal":"4/1/2022","fase":"O&M","tipo":"Compra-Venta","giro":"Textilera","ciudad":"Tultitlán","edo":"Estado de México","zona":"CENTRO","lat":19.635,"lng":-99.184,"kw":400,"kwh":600,"precio":166767,"batMarca":"Narada","batModelo":"-","racks":4,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-7M","invKw":437.5,"fechaOp":"4/1/2022","ubic":"Tultitlán, Estado de México","codPlanY":"2022","codRealY":"2022","codPlanYM":202204,"codRealYM":202204,"codPlanTxt":"abr 2022","codRealTxt":"abr 2022","codY":"2022","bateria":"Narada -","inversor":"SINEXCEL ×1"},{"num":9,"nombre":"Ralca","codigo":"RA09","rpu":"","demanda":0,"cod":"may 15, 2022","codReal":"5/15/2022","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Almacenamiento medicamentos","ciudad":"Lerma","edo":"Estado de México","zona":"CENTRO","lat":19.298,"lng":-99.546,"kw":125,"kwh":340,"precio":0,"batMarca":"Gotion Tech","batModelo":"4P240S","racks":1,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-2M","invKw":125,"fechaOp":"5/15/2022","ubic":"Lerma, Estado de México","codPlanY":"2022","codRealY":"2022","codPlanYM":202205,"codRealYM":202205,"codPlanTxt":"may 2022","codRealTxt":"may 2022","codY":"2022","bateria":"Gotion Tech 4P240S","inversor":"SINEXCEL ×1"},{"num":10,"nombre":"Calle Corazón","codigo":"CC10","rpu":"","demanda":0,"cod":"June 15, 2022","codReal":"6/15/2022","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.628,"lng":-87.071,"kw":100,"kwh":200,"precio":93280,"batMarca":"Kore Power","batModelo":"M1-6-MODULE","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":100,"fechaOp":"6/15/2022","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2022","codRealY":"2022","codPlanYM":202206,"codRealYM":202206,"codPlanTxt":"jun 2022","codRealTxt":"jun 2022","codY":"2022","bateria":"Kore Power M1-6-MODULE","inversor":"KEHUA ×1"},{"num":11,"nombre":"Landmark 3 ( Fresko )","codigo":"LK11","rpu":"","demanda":0,"cod":"June 15, 2022","codReal":"6/15/2022","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Centro comercial","ciudad":"Guadalajara","edo":"Jalisco","zona":"OCCIDENTE","lat":20.708,"lng":-103.413,"kw":100,"kwh":200,"precio":112000,"batMarca":"Kore Power","batModelo":"M1-6-MODULE","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":100,"fechaOp":"6/15/2022","ubic":"Guadalajara, Jalisco","codPlanY":"2022","codRealY":"2022","codPlanYM":202206,"codRealYM":202206,"codPlanTxt":"jun 2022","codRealTxt":"jun 2022","codY":"2022","bateria":"Kore Power M1-6-MODULE","inversor":"KEHUA ×1"},{"num":12,"nombre":"Banyan Tree","codigo":"AK12","rpu":"","demanda":0,"cod":"June 15, 2022","codReal":"6/15/2022","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.683,"lng":-87.029,"kw":100,"kwh":160,"precio":0,"batMarca":"Kore Power","batModelo":"M1-6-MODULE","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":100,"fechaOp":"6/15/2022","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2022","codRealY":"2022","codPlanYM":202206,"codRealYM":202206,"codPlanTxt":"jun 2022","codRealTxt":"jun 2022","codY":"2022","bateria":"Kore Power M1-6-MODULE","inversor":"KEHUA ×1"},{"num":13,"nombre":"Renishaw","codigo":"RW13","rpu":"","demanda":0,"cod":"February 1, 2023","codReal":"2/1/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Fabricación de Herramientas","ciudad":"Apodaca","edo":"Nuevo León","zona":"NORTE","lat":25.784,"lng":-100.136,"kw":125,"kwh":340,"precio":164150,"batMarca":"SYL","batModelo":"SU340U170K","racks":1,"nInv":1,"invMarca":"DYNAPOWER","invModelo":"MPS-125","invKw":125,"fechaOp":"2/1/2023","ubic":"Apodaca, Nuevo León","codPlanY":"2023","codRealY":"2023","codPlanYM":202302,"codRealYM":202302,"codPlanTxt":"feb 2023","codRealTxt":"feb 2023","codY":"2023","bateria":"SYL SU340U170K","inversor":"DYNAPOWER ×1"},{"num":14,"nombre":"Azteca","codigo":"AZ14","rpu":"","demanda":0,"cod":"November 30, 2022","codReal":"11/30/2022","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"","ciudad":"Ecatepec","edo":"Estado de México","zona":"CENTRO","lat":null,"lng":null,"kw":30,"kwh":60,"precio":0,"batMarca":"EnergPort","batModelo":"","racks":1,"nInv":0,"invMarca":"SINEXCEL","invModelo":"","invKw":0,"fechaOp":"11/30/2022","ubic":"Ecatepec, Estado de México","codPlanY":"2022","codRealY":"2022","codPlanYM":202211,"codRealYM":202211,"codPlanTxt":"nov 2022","codRealTxt":"nov 2022","codY":"2022","bateria":"EnergPort","inversor":"SINEXCEL"},{"num":15,"nombre":"Cuplasa","codigo":"CS15","rpu":"","demanda":0,"cod":"November 2, 2022","codReal":"11/2/2022","fase":"O&M","tipo":"Compra-Venta","giro":"Industria del Plástico","ciudad":"Miguel Hidalgo","edo":"Ciudad de México","zona":"CENTRO","lat":19.448,"lng":-99.19,"kw":250,"kwh":500,"precio":235000,"batMarca":"Pylontech","batModelo":"H32148","racks":5,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-4M","invKw":250,"fechaOp":"11/2/2022","ubic":"Miguel Hidalgo, Ciudad de México","codPlanY":"2022","codRealY":"2022","codPlanYM":202211,"codRealYM":202211,"codPlanTxt":"nov 2022","codRealTxt":"nov 2022","codY":"2022","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":16,"nombre":"HEB","codigo":"HBS16","rpu":"","demanda":0,"cod":"December 31, 2022","codReal":"12/31/2022","fase":"O&M","tipo":"Compra-Venta","giro":"Supermercado","ciudad":"San Pedro Garza García","edo":"Nuevo León","zona":"NORTE","lat":25.662,"lng":-100.383,"kw":700,"kwh":1400,"precio":716450,"batMarca":"SYL","batModelo":"SU286U143K","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"12/31/2022","ubic":"San Pedro Garza García, Nuevo León","codPlanY":"2022","codRealY":"2022","codPlanYM":202212,"codRealYM":202212,"codPlanTxt":"dic 2022","codRealTxt":"dic 2022","codY":"2022","bateria":"SYL SU286U143K","inversor":"KEHUA ×1"},{"num":17,"nombre":"OMA Expansión","codigo":"OM17","rpu":"","demanda":0,"cod":"December 31, 2022","codReal":"12/31/2022","fase":"O&M","tipo":"Compra-Venta","giro":"Aeropuerto","ciudad":"Mazatlán","edo":"Sinaloa","zona":"NORTE","lat":23.167,"lng":-106.271,"kw":400,"kwh":1600,"precio":0,"batMarca":"SYL","batModelo":"SU344C143K","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"12/31/2022","ubic":"Mazatlán, Sinaloa","codPlanY":"2022","codRealY":"2022","codPlanYM":202212,"codRealYM":202212,"codPlanTxt":"dic 2022","codRealTxt":"dic 2022","codY":"2022","bateria":"SYL SU344C143K","inversor":"KEHUA ×1"},{"num":18,"nombre":"Moon Palace","codigo":"MP18","rpu":"","demanda":0,"cod":"March 31, 2023","codReal":"3/31/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":20.984,"lng":-86.867,"kw":12000,"kwh":24000,"precio":9560733,"batMarca":"Sungrow","batModelo":"ST2408UX-US","racks":10,"nInv":5,"invMarca":"SUNGROW","invModelo":"SC2500UD-US","invKw":2500,"fechaOp":"3/31/2023","ubic":"Cancún, Quintana Roo","codPlanY":"2023","codRealY":"2023","codPlanYM":202303,"codRealYM":202303,"codPlanTxt":"mar 2023","codRealTxt":"mar 2023","codY":"2023","bateria":"Sungrow ST2408UX-US","inversor":"SUNGROW ×5"},{"num":19,"nombre":"Fibra Hotel","codigo":"FH19","rpu":"","demanda":0,"cod":"January 7, 2023","codReal":"1/7/2023","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Boca del Río","edo":"Veracruz","zona":"CENTRO","lat":19.137,"lng":-96.106,"kw":300,"kwh":600,"precio":286200,"batMarca":"SYL","batModelo":"","racks":3,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-5M","invKw":312.5,"fechaOp":"1/7/2023","ubic":"Boca del Río, Veracruz","codPlanY":"2023","codRealY":"2023","codPlanYM":202301,"codRealYM":202301,"codPlanTxt":"ene 2023","codRealTxt":"ene 2023","codY":"2023","bateria":"SYL","inversor":"SINEXCEL ×1"},{"num":20,"nombre":"Krystal Torre A","codigo":"KA20","rpu":"","demanda":0,"cod":"March 31, 2023","codReal":"5/28/2023","fase":"FUERA OPERACIÓN","tipo":"Arrendamiento","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":21.134,"lng":-86.745,"kw":700,"kwh":1000,"precio":444444,"batMarca":"SYL","batModelo":"SU344C172K","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"5/28/2023","ubic":"Cancún, Quintana Roo","codPlanY":"2023","codRealY":"2023","codPlanYM":202303,"codRealYM":202305,"codPlanTxt":"mar 2023","codRealTxt":"may 2023","codY":"2023","bateria":"SYL SU344C172K","inversor":"KEHUA ×1"},{"num":21,"nombre":"Krystal Torre B","codigo":"KB21","rpu":"","demanda":0,"cod":"February 28, 2023","codReal":"3/31/2023","fase":"FUERA OPERACIÓN","tipo":"Arrendamiento","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":21.134,"lng":-86.745,"kw":400,"kwh":600,"precio":395200,"batMarca":"SYL","batModelo":"SU340U85K","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"3/31/2023","ubic":"Cancún, Quintana Roo","codPlanY":"2023","codRealY":"2023","codPlanYM":202302,"codRealYM":202303,"codPlanTxt":"feb 2023","codRealTxt":"mar 2023","codY":"2023","bateria":"SYL SU340U85K","inversor":"KEHUA ×1"},{"num":22,"nombre":"Krystal Grand","codigo":"KG22","rpu":"","demanda":0,"cod":"February 28, 2023","codReal":"4/30/2023","fase":"FUERA OPERACIÓN","tipo":"Arrendamiento","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":21.134,"lng":-86.745,"kw":800,"kwh":1600,"precio":988000,"batMarca":"SYL","batModelo":"SU322U161K","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"4/30/2023","ubic":"Cancún, Quintana Roo","codPlanY":"2023","codRealY":"2023","codPlanYM":202302,"codRealYM":202304,"codPlanTxt":"feb 2023","codRealTxt":"abr 2023","codY":"2023","bateria":"SYL SU322U161K","inversor":"KEHUA ×1"},{"num":23,"nombre":"FTP","codigo":"FP23","rpu":"","demanda":0,"cod":"March 31, 2023","codReal":"5/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Toluca","edo":"Estado de México","zona":"CENTRO","lat":19.3,"lng":-99.536,"kw":350,"kwh":400,"precio":0,"batMarca":"Pylontech","batModelo":"H32148","racks":4,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-6M / PWD-800K","invKw":375,"fechaOp":"5/31/2024","ubic":"Toluca, Estado de México","codPlanY":"2023","codRealY":"2024","codPlanYM":202303,"codRealYM":202405,"codPlanTxt":"mar 2023","codRealTxt":"may 2024","codY":"2024","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":24,"nombre":"Igasamex","codigo":"IX24","rpu":"","demanda":0,"cod":"March 31, 2023","codReal":"5/31/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Infraestructura Gas Natural","ciudad":"Santiago Tetla","edo":"Tlaxcala","zona":"CENTRO","lat":19.54,"lng":-98.622,"kw":650,"kwh":1000,"precio":508000,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"5/31/2023","ubic":"Santiago Tetla, Tlaxcala","codPlanY":"2023","codRealY":"2023","codPlanYM":202303,"codRealYM":202305,"codPlanTxt":"mar 2023","codRealTxt":"may 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":25,"nombre":"Rymco Monclova","codigo":"RO25","rpu":"","demanda":0,"cod":"July 31, 2023","codReal":"7/31/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Fabricación de Tuberías","ciudad":"Monclova","edo":"Coahuila","zona":"NORTE","lat":26.886,"lng":-101.48,"kw":3000,"kwh":6000,"precio":2576851,"batMarca":"CATL","batModelo":"M52280-E","racks":16,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"7/31/2023","ubic":"Monclova, Coahuila","codPlanY":"2023","codRealY":"2023","codPlanYM":202307,"codRealYM":202307,"codPlanTxt":"jul 2023","codRealTxt":"jul 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":26,"nombre":"Merco Santa Catarina","codigo":"MS26","rpu":"","demanda":0,"cod":"may 31, 2024","codReal":"4/31/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Supermercado","ciudad":"Santa Catarina","edo":"Nuevo León","zona":"NORTE","lat":25.689,"lng":-100.492,"kw":200,"kwh":400,"precio":220000,"batMarca":"Pylontech","batModelo":"H32148","racks":4,"nInv":1,"invMarca":"SINEXCEL","invModelo":"PWS1-500KTL-NA-4M","invKw":250,"fechaOp":"4/31/2023","ubic":"Santa Catarina, Nuevo León","codPlanY":"2024","codRealY":"2023","codPlanYM":202405,"codRealYM":202304,"codPlanTxt":"may 2024","codRealTxt":"abr 2023","codY":"2023","bateria":"Pylontech H32148","inversor":"SINEXCEL ×1"},{"num":27,"nombre":"Insertex","codigo":"INX27","rpu":"","demanda":0,"cod":"July 26, 2023","codReal":"7/26/2023","fase":"O&M","tipo":"SaaS","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.079,"lng":-98.217,"kw":250,"kwh":500,"precio":240500,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":125,"fechaOp":"7/26/2023","ubic":"Puebla, Puebla","codPlanY":"2023","codRealY":"2023","codPlanYM":202307,"codRealYM":202307,"codPlanTxt":"jul 2023","codRealTxt":"jul 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":28,"nombre":"Tejidos y Engomados","codigo":"TE28","rpu":"","demanda":0,"cod":"July 31, 2023","codReal":"7/31/2023","fase":"O&M","tipo":"SaaS","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.075,"lng":-98.129,"kw":300,"kwh":600,"precio":291000,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"7/31/2023","ubic":"Puebla, Puebla","codPlanY":"2023","codRealY":"2023","codPlanYM":202307,"codRealYM":202307,"codPlanTxt":"jul 2023","codRealTxt":"jul 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":29,"nombre":"Envases TP","codigo":"EP29","rpu":"","demanda":0,"cod":"August 23, 2023","codReal":"8/23/2023","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Papalotla","edo":"Tlaxcala","zona":"CENTRO","lat":19.161,"lng":-98.23,"kw":2500,"kwh":5000,"precio":2120000,"batMarca":"CATL","batModelo":"M52280-E","racks":14,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"8/23/2023","ubic":"Papalotla, Tlaxcala","codPlanY":"2023","codRealY":"2023","codPlanYM":202308,"codRealYM":202308,"codPlanTxt":"ago 2023","codRealTxt":"ago 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":30,"nombre":"ABC INOAC","codigo":"AC30","rpu":"","demanda":0,"cod":"July 28, 2023","codReal":"7/28/2023","fase":"O&M","tipo":"SaaS","giro":"Fabricación de Autopartes","ciudad":"San Juan del Río","edo":"Querétaro","zona":"BAJÍO","lat":20.366,"lng":-99.954,"kw":2000,"kwh":4128,"precio":1441331,"batMarca":"CATL","batModelo":"M52280-E","racks":12,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"7/28/2023","ubic":"San Juan del Río, Querétaro","codPlanY":"2023","codRealY":"2023","codPlanYM":202307,"codRealYM":202307,"codPlanTxt":"jul 2023","codRealTxt":"jul 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":31,"nombre":"ALIANZA PARA LA PRODUCCION DE SOLES (CUBA)","codigo":"CB31","rpu":"","demanda":0,"cod":"July 1, 2024","codReal":"7/1/2024","fase":"FUERA OPERACIÓN","tipo":"SaaS","giro":"Granja Porcina","ciudad":"Rosario","edo":"Sonora","zona":"NORTE","lat":28.043,"lng":-109.278,"kw":600,"kwh":1200,"precio":514800,"batMarca":"CATL","batModelo":"M52280-E","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"7/1/2024","ubic":"Rosario, Sonora","codPlanY":"2024","codRealY":"2024","codPlanYM":202407,"codRealYM":202407,"codPlanTxt":"jul 2024","codRealTxt":"jul 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":32,"nombre":"GRANJA SIERRA OSCURA (NURI)","codigo":"NR32","rpu":"","demanda":0,"cod":"October 1, 2024","codReal":"10/1/2024","fase":"FUERA OPERACIÓN","tipo":"SaaS","giro":"Granja Porcina","ciudad":"Rosario","edo":"Sonora","zona":"NORTE","lat":23.051,"lng":-109.027,"kw":400,"kwh":800,"precio":350400,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"10/1/2024","ubic":"Rosario, Sonora","codPlanY":"2024","codRealY":"2024","codPlanYM":202410,"codRealYM":202410,"codPlanTxt":"oct 2024","codRealTxt":"oct 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":33,"nombre":"ALIMENTOS GROLE ( RASTRO)","codigo":"AG33","rpu":"","demanda":0,"cod":"September 30, 2023","codReal":"9/30/2023","fase":"O&M","tipo":"SaaS","giro":"Rastro","ciudad":"Ciudad Obregón","edo":"Sonora","zona":"NORTE","lat":27.525,"lng":-109.883,"kw":2500,"kwh":5000,"precio":1630000,"batMarca":"CATL","batModelo":"M52280-E","racks":14,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"9/30/2023","ubic":"Ciudad Obregón, Sonora","codPlanY":"2023","codRealY":"2023","codPlanYM":202309,"codRealYM":202309,"codPlanTxt":"sep 2023","codRealTxt":"sep 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":34,"nombre":"TERRANOVA","codigo":"TA34","rpu":"","demanda":0,"cod":"August 25, 2023","codReal":"8/25/2023","fase":"O&M","tipo":"SaaS","giro":"Granja Porcina","ciudad":"Villa de Guadalupe","edo":"San Luis Potosí","zona":"NORTE","lat":23.197,"lng":-100.51,"kw":200,"kwh":400,"precio":377600,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":125,"fechaOp":"8/25/2023","ubic":"Villa de Guadalupe, San Luis Potosí","codPlanY":"2023","codRealY":"2023","codPlanYM":202308,"codRealYM":202308,"codPlanTxt":"ago 2023","codRealTxt":"ago 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":35,"nombre":"XCARET ARTE - CASA DE LOS ARTISTAS","codigo":"XHAA36","rpu":"","demanda":0,"cod":"January 31, 2024","codReal":"1/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.589,"lng":-87.109,"kw":1000,"kwh":2236,"precio":1043898,"batMarca":"CATL","batModelo":"M52280-E","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"1/31/2024","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":36,"nombre":"XCARET CARTE - CASA DE LA MUSICA","codigo":"XHAM37","rpu":"","demanda":0,"cod":"January 31, 2024","codReal":"1/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.589,"lng":-87.109,"kw":1000,"kwh":2236,"precio":816541,"batMarca":"CATL","batModelo":"M52280-E","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"1/31/2024","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":37,"nombre":"XCARET ARTE - CASA DEL DISEÑO","codigo":"XHAD38","rpu":"","demanda":0,"cod":"January 31, 2024","codReal":"1/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.589,"lng":-87.109,"kw":1000,"kwh":2236,"precio":816541,"batMarca":"CATL","batModelo":"M52280-E","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"1/31/2024","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":38,"nombre":"XCARET ARTE - CASA PAZ","codigo":"XHAP39","rpu":"","demanda":0,"cod":"January 31, 2024","codReal":"1/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.589,"lng":-87.109,"kw":700,"kwh":1491,"precio":578954,"batMarca":"CATL","batModelo":"M52280-E","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"1/31/2024","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":39,"nombre":"XCARET CASA DE LA PLAYA","codigo":"CDLP40","rpu":"","demanda":0,"cod":"February 13, 2024","codReal":"2/13/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.588,"lng":-87.106,"kw":800,"kwh":1864,"precio":980187,"batMarca":"CATL","batModelo":"M52280-E","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"2/13/2024","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2024","codRealY":"2024","codPlanYM":202402,"codRealYM":202402,"codPlanTxt":"feb 2024","codRealTxt":"feb 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":40,"nombre":"XCARET MEXICO","codigo":"HXM41","rpu":"","demanda":0,"cod":"dic 31, 2023","codReal":"12/31/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.587,"lng":-87.112,"kw":2500,"kwh":5218,"precio":2439813,"batMarca":"CATL","batModelo":"M52280-E","racks":14,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"12/31/2023","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2023","codRealY":"2023","codPlanYM":202312,"codRealYM":202312,"codPlanTxt":"dic 2023","codRealTxt":"dic 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":41,"nombre":"PARQUE XCARET","codigo":"XC42","rpu":"","demanda":0,"cod":"dic 31, 2023","codReal":"12/31/2023","fase":"O&M","tipo":"Compra-Venta","giro":"Parque temático","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.581,"lng":-87.12,"kw":1500,"kwh":3334,"precio":1376500,"batMarca":"CATL","batModelo":"M52280-E","racks":9,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"12/31/2023","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2023","codRealY":"2023","codPlanYM":202312,"codRealYM":202312,"codPlanTxt":"dic 2023","codRealTxt":"dic 2023","codY":"2023","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":42,"nombre":"FIBRA DANHOS TOREO","codigo":"FDT44","rpu":"","demanda":0,"cod":"dic 31, 2024","codReal":"12/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Centro Comercial","ciudad":"Miguel Hidalgo","edo":"Ciudad de México","zona":"CENTRO","lat":19.454,"lng":-99.219,"kw":700,"kwh":1400,"precio":688800,"batMarca":"CATL","batModelo":"M52280-E","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"12/31/2024","ubic":"Miguel Hidalgo, Ciudad de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202412,"codRealYM":202412,"codPlanTxt":"dic 2024","codRealTxt":"dic 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":43,"nombre":"SSAM (PATIO1)","codigo":"SSM45","rpu":"","demanda":0,"cod":"January 2, 2024","codReal":"1/2/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Terminal Portuaria","ciudad":"Manzanillo","edo":"Colima","zona":"OCCIDENTE","lat":19.075,"lng":-104.289,"kw":250,"kwh":500,"precio":279072,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":125,"fechaOp":"1/2/2024","ubic":"Manzanillo, Colima","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":44,"nombre":"Patriotismo 1","codigo":"PT146","rpu":"","demanda":0,"cod":"January 31, 2024","codReal":"1/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Centro Comercial","ciudad":"Benito Juárez","edo":"Ciudad de México","zona":"CENTRO","lat":19.396,"lng":-99.181,"kw":400,"kwh":744,"precio":1055180,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"1/31/2024","ubic":"Benito Juárez, Ciudad de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":45,"nombre":"Patriotismo 2","codigo":"PT247","rpu":"","demanda":0,"cod":"January 31, 2024","codReal":"1/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Centro Comercial","ciudad":"Benito Juárez","edo":"Ciudad de México","zona":"CENTRO","lat":19.396,"lng":-99.181,"kw":300,"kwh":744,"precio":1402368,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"1/31/2024","ubic":"Benito Juárez, Ciudad de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202401,"codRealYM":202401,"codPlanTxt":"ene 2024","codRealTxt":"ene 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":46,"nombre":"GRUPO PORRES","codigo":"GP48","rpu":"","demanda":0,"cod":"April 24, 2024","codReal":"4/24/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Industria Pecuaria","ciudad":"Tuxtla Gutierrez","edo":"Chiapas","zona":"SUR","lat":16.768,"lng":-93.178,"kw":100,"kwh":200,"precio":111000,"batMarca":"Kore Power","batModelo":"M1-6-MODULE","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-100K-B-HM","invKw":100,"fechaOp":"4/24/2024","ubic":"Tuxtla Gutierrez, Chiapas","codPlanY":"2024","codRealY":"2024","codPlanYM":202404,"codRealYM":202404,"codPlanTxt":"abr 2024","codRealTxt":"abr 2024","codY":"2024","bateria":"Kore Power M1-6-MODULE","inversor":"KEHUA ×1"},{"num":47,"nombre":"HILADOS Y TEJIDOS SPRING","codigo":"HTS35","rpu":"","demanda":0,"cod":"may 1, 2024","codReal":"5/1/2024","fase":"O&M","tipo":"SaaS","giro":"Textilera","ciudad":"Cuautitlan Izcalli","edo":"Estado de México","zona":"CENTRO","lat":19.703,"lng":-99.204,"kw":1500,"kwh":3354,"precio":1176000,"batMarca":"CATL","batModelo":"M52280-E","racks":9,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"5/1/2024","ubic":"Cuautitlan Izcalli, Estado de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202405,"codRealYM":202405,"codPlanTxt":"may 2024","codRealTxt":"may 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":48,"nombre":"WORLD TAPE","codigo":"WT43","rpu":"","demanda":0,"cod":"April 1, 2024","codReal":"4/1/2024","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Toluca","edo":"Estado de México","zona":"CENTRO","lat":19.294,"lng":-99.527,"kw":100,"kwh":372,"precio":108604,"batMarca":"CATL","batModelo":"M52280-E","racks":1,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-125K-B-HM","invKw":125,"fechaOp":"4/1/2024","ubic":"Toluca, Estado de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202404,"codRealYM":202404,"codPlanTxt":"abr 2024","codRealTxt":"abr 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":49,"nombre":"ABRATEX","codigo":"AX49","rpu":"","demanda":0,"cod":"April 30, 2024","codReal":"4/30/2024","fase":"FUERA OPERACIÓN","tipo":"SaaS","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.079,"lng":-98.174,"kw":500,"kwh":1118,"precio":483019,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"4/30/2024","ubic":"Puebla, Puebla","codPlanY":"2024","codRealY":"2024","codPlanYM":202404,"codRealYM":202404,"codPlanTxt":"abr 2024","codRealTxt":"abr 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":50,"nombre":"BRINCO F2","codigo":"EB250","rpu":"","demanda":0,"cod":"may 1, 2024","codReal":"5/1/2024","fase":"O&M","tipo":"SaaS","giro":"Textilera","ciudad":"Tultitlán","edo":"Estado de México","zona":"CENTRO","lat":19.635,"lng":-99.184,"kw":800,"kwh":1600,"precio":700676,"batMarca":"CATL","batModelo":"M52280-E","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"5/1/2024","ubic":"Tultitlán, Estado de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202405,"codRealYM":202405,"codPlanTxt":"may 2024","codRealTxt":"may 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":51,"nombre":"FABRICA MARIA (GRAND)","codigo":"FM51","rpu":"","demanda":0,"cod":"jun 1, 2024","codReal":"6/1/2024","fase":"O&M","tipo":"Arrendamiento","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.102,"lng":-98.23,"kw":700,"kwh":1000,"precio":800411,"batMarca":"SYL","batModelo":"SU322U161K","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"6/1/2024","ubic":"Puebla, Puebla","codPlanY":"2024","codRealY":"2024","codPlanYM":202406,"codRealYM":202406,"codPlanTxt":"jun 2024","codRealTxt":"jun 2024","codY":"2024","bateria":"SYL SU322U161K","inversor":"KEHUA ×1"},{"num":52,"nombre":"FRESKO LA COMER","codigo":"FLC52","rpu":"","demanda":0,"cod":"Dec 31, 2024","codReal":"12/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Supermercado","ciudad":"Guadalajara","edo":"Jalisco","zona":"NORTE","lat":20.694,"lng":-103.375,"kw":400,"kwh":1118,"precio":461132,"batMarca":"CATL","batModelo":"M52280-E","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"12/31/2024","ubic":"Guadalajara, Jalisco","codPlanY":"2024","codRealY":"2024","codPlanYM":202412,"codRealYM":202412,"codPlanTxt":"dic 2024","codRealTxt":"dic 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":53,"nombre":"SHA","codigo":"SH53","rpu":"","demanda":0,"cod":"Dec 31, 2024","codReal":"12/31/2024","fase":"O&M","tipo":"SaaS","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":21.215,"lng":-86.802,"kw":1863,"kwh":3726,"precio":2388262,"batMarca":"CATL","batModelo":"M52280-E","racks":10,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"12/31/2024","ubic":"Cancún, Quintana Roo","codPlanY":"2024","codRealY":"2024","codPlanYM":202412,"codRealYM":202412,"codPlanTxt":"dic 2024","codRealTxt":"dic 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":54,"nombre":"GRAND ISLAND","codigo":"GI54","rpu":"","demanda":0,"cod":"feb 28, 2025","codReal":"2/28/2025","fase":"O&M","tipo":"SaaS","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":21.065,"lng":-86.783,"kw":2609,"kwh":5218,"precio":1927847,"batMarca":"CATL","batModelo":"M52280-E","racks":14,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"2/28/2025","ubic":"Cancún, Quintana Roo","codPlanY":"2025","codRealY":"2025","codPlanYM":202502,"codRealYM":202502,"codPlanTxt":"feb 2025","codRealTxt":"feb 2025","codY":"2025","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":55,"nombre":"COPPEL","codigo":"CPL55","rpu":"","demanda":0,"cod":"July 24, 2024","codReal":"7/24/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Campus Operativo","ciudad":"Culiacán","edo":"Sinaloa","zona":"NORTE","lat":24.711,"lng":-107.388,"kw":500,"kwh":1118,"precio":454499,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"7/24/2024","ubic":"Culiacán, Sinaloa","codPlanY":"2024","codRealY":"2024","codPlanYM":202407,"codRealYM":202407,"codPlanTxt":"jul 2024","codRealTxt":"jul 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":56,"nombre":"MOLINOS LA BARCA","codigo":"MLB56","rpu":"","demanda":0,"cod":"July 1, 2024","codReal":"7/1/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Harinera","ciudad":"La Barca","edo":"Michoacán","zona":"BAJÍO","lat":20.318,"lng":-102.536,"kw":1000,"kwh":1490,"precio":837572,"batMarca":"CATL","batModelo":"M52280-E","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"7/1/2024","ubic":"La Barca, Michoacán","codPlanY":"2024","codRealY":"2024","codPlanYM":202407,"codRealYM":202407,"codPlanTxt":"jul 2024","codRealTxt":"jul 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":57,"nombre":"MERCO SENDEROS","codigo":"MCS57","rpu":"","demanda":0,"cod":"TBD","codReal":"","fase":"FUERA OPERACIÓN","tipo":"Compra-Venta","giro":"Supermercado","ciudad":"Saltillo","edo":"Coahuila","zona":"NORTE","lat":25.378,"lng":-101.014,"kw":200,"kwh":400,"precio":196000,"batMarca":"Kore Power","batModelo":"M1-6-MODULE","racks":2,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-100K-B-HM","invKw":100,"fechaOp":"","ubic":"Saltillo, Coahuila","codPlanY":"","codRealY":"","codPlanYM":0,"codRealYM":0,"codPlanTxt":"","codRealTxt":"","codY":"","bateria":"Kore Power M1-6-MODULE","inversor":"KEHUA ×1"},{"num":58,"nombre":"VIALCOMA","codigo":"VLC58","rpu":"","demanda":0,"cod":"June 15, 2024","codReal":"6/15/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Papelera","ciudad":"Tlalnepantla","edo":"Estado de México","zona":"CENTRO","lat":19.517,"lng":-99.214,"kw":300,"kwh":745,"precio":377172,"batMarca":"CATL","batModelo":"M52280-E","racks":2,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"6/15/2024","ubic":"Tlalnepantla, Estado de México","codPlanY":"2024","codRealY":"2024","codPlanYM":202406,"codRealYM":202406,"codPlanTxt":"jun 2024","codRealTxt":"jun 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×2"},{"num":59,"nombre":"PERFETTI","codigo":"PT59","rpu":"","demanda":0,"cod":"31 March, 2024","codReal":"3/31/2025","fase":"O&M","tipo":"SaaS","giro":"Industria de Dulces","ciudad":"Toluca","edo":"Estado de México","zona":"CENTRO","lat":19.372,"lng":-99.569,"kw":1500,"kwh":3354,"precio":1200839,"batMarca":"CATL","batModelo":"M52280-E","racks":9,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"3/31/2025","ubic":"Toluca, Estado de México","codPlanY":"2024","codRealY":"2025","codPlanYM":202403,"codRealYM":202503,"codPlanTxt":"mar 2024","codRealTxt":"mar 2025","codY":"2025","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":60,"nombre":"HILOS CLAUDIA","codigo":"HC60","rpu":"","demanda":0,"cod":"November 30, 2024","codReal":"11/30/2024","fase":"O&M","tipo":"SaaS","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.078,"lng":-98.17,"kw":746,"kwh":1491,"precio":660292,"batMarca":"CATL","batModelo":"M52280-E","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"11/30/2024","ubic":"Puebla, Puebla","codPlanY":"2024","codRealY":"2024","codPlanYM":202411,"codRealYM":202411,"codPlanTxt":"nov 2024","codRealTxt":"nov 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":61,"nombre":"POLIBAJIO SJR","codigo":"PBS61","rpu":"","demanda":0,"cod":"September 30, 2024","codReal":"9/30/2024","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"San Juan del Río","edo":"Querétaro","zona":"BAJÍO","lat":20.366,"lng":-99.954,"kw":500,"kwh":1118,"precio":609365,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"9/30/2024","ubic":"San Juan del Río, Querétaro","codPlanY":"2024","codRealY":"2024","codPlanYM":202409,"codRealYM":202409,"codPlanTxt":"sep 2024","codRealTxt":"sep 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":62,"nombre":"POLIBAJIO ORIZABA","codigo":"PBO62","rpu":"","demanda":0,"cod":"October 31, 2024","codReal":"10/31/2024","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Orizaba","edo":"Veracruz","zona":"CENTRO","lat":18.862,"lng":-97.056,"kw":1100,"kwh":2236,"precio":1063362,"batMarca":"CATL","batModelo":"M52280-E","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"10/31/2024","ubic":"Orizaba, Veracruz","codPlanY":"2024","codRealY":"2024","codPlanYM":202410,"codRealYM":202410,"codPlanTxt":"oct 2024","codRealTxt":"oct 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":63,"nombre":"LLC3","codigo":"LLC63","rpu":"","demanda":0,"cod":"31-may-2025","codReal":"5/1/2025","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Tezoyuca","edo":"Estado de México","zona":"CENTRO","lat":19.586,"lng":-98.926,"kw":500,"kwh":1118,"precio":377172,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"5/1/2025","ubic":"Tezoyuca, Estado de México","codPlanY":"2025","codRealY":"2025","codPlanYM":202505,"codRealYM":202505,"codPlanTxt":"may 2025","codRealTxt":"may 2025","codY":"2025","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":64,"nombre":"Fiesta Americana Veracruz","codigo":"FAV64","rpu":"","demanda":0,"cod":"August 31, 2024","codReal":"8/31/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Veracruz","edo":"Veracruz","zona":"CENTRO","lat":19.151,"lng":-96.094,"kw":500,"kwh":1118,"precio":617191,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"8/31/2024","ubic":"Veracruz, Veracruz","codPlanY":"2024","codRealY":"2024","codPlanYM":202408,"codRealYM":202408,"codPlanTxt":"ago 2024","codRealTxt":"ago 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":65,"nombre":"MAGNOGRAF 8606","codigo":"MG65","rpu":"","demanda":0,"cod":"30-may-2025","codReal":"12/20/2024","fase":"O&M","tipo":"Compra-Venta","giro":"Empresa de Litografía","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.073,"lng":-98.154,"kw":1500,"kwh":3354,"precio":1117653,"batMarca":"CATL","batModelo":"M52280-E","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"12/20/2024","ubic":"Puebla, Puebla","codPlanY":"2025","codRealY":"2024","codPlanYM":202505,"codRealYM":202412,"codPlanTxt":"may 2025","codRealTxt":"dic 2024","codY":"2024","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":66,"nombre":"MAGNOGRAF 3741","codigo":"MG66","rpu":"","demanda":0,"cod":"30-may-2025","codReal":"6/1/2025","fase":"O&M","tipo":"Compra-Venta","giro":"Empresa de Litografía","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.073,"lng":-98.154,"kw":400,"kwh":824,"precio":363525,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"6/1/2025","ubic":"Puebla, Puebla","codPlanY":"2025","codRealY":"2025","codPlanYM":202505,"codRealYM":202506,"codPlanTxt":"may 2025","codRealTxt":"jun 2025","codY":"2025","bateria":"CATL M52280-E","inversor":"KEHUA ×3"},{"num":67,"nombre":"GRAND VELAS","codigo":"GV67","rpu":"","demanda":0,"cod":"1-may-2025","codReal":"5/1/2025","fase":"O&M","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.675,"lng":-87.023,"kw":2500,"kwh":5218,"precio":1414024,"batMarca":"CATL","batModelo":"R08306P05L31","racks":13,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"5/1/2025","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2025","codRealY":"2025","codPlanYM":202505,"codRealYM":202505,"codPlanTxt":"may 2025","codRealTxt":"may 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×2"},{"num":68,"nombre":"Harineras del Golfo","codigo":"HDG68","rpu":"","demanda":0,"cod":"1-dic-2024","codReal":"2/28/2025","fase":"O&M","tipo":"Compra-Venta","giro":"Harinera","ciudad":"Tuxpan","edo":"Veracruz","zona":"CENTRO","lat":20.932,"lng":-97.383,"kw":600,"kwh":1864,"precio":580000,"batMarca":"CATL","batModelo":"M52280-E","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"2/28/2025","ubic":"Tuxpan, Veracruz","codPlanY":"2024","codRealY":"2025","codPlanYM":202412,"codRealYM":202502,"codPlanTxt":"dic 2024","codRealTxt":"feb 2025","codY":"2025","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":69,"nombre":"Indamex","codigo":"INX69","rpu":"","demanda":0,"cod":"31-may-2025","codReal":"6/1/2025","fase":"O&M","tipo":"SaaS","giro":"Industria Lechera","ciudad":"Villamar","edo":"Michoacán","zona":"CENTRO","lat":19.978,"lng":-102.631,"kw":700,"kwh":1492,"precio":642600,"batMarca":"CATL","batModelo":"R09285P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"6/1/2025","ubic":"Villamar, Michoacán","codPlanY":"2025","codRealY":"2025","codPlanYM":202505,"codRealYM":202506,"codPlanTxt":"may 2025","codRealTxt":"jun 2025","codY":"2025","bateria":"CATL R09285P05L31","inversor":"KEHUA ×1"},{"num":70,"nombre":"La Norteñita","codigo":"NNT70","rpu":"","demanda":0,"cod":"31-may-2025","codReal":"6/1/2025","fase":"O&M","tipo":"SaaS","giro":"Industria de Frutas","ciudad":"Ciudad Cuauhtémoc","edo":"Chihuahua","zona":"NORTE","lat":28.399,"lng":-106.822,"kw":1400,"kwh":2982,"precio":1124063,"batMarca":"CATL","batModelo":"R09285P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"6/1/2025","ubic":"Ciudad Cuauhtémoc, Chihuahua","codPlanY":"2025","codRealY":"2025","codPlanYM":202505,"codRealYM":202506,"codPlanTxt":"may 2025","codRealTxt":"jun 2025","codY":"2025","bateria":"CATL R09285P05L31","inversor":"KEHUA ×1"},{"num":71,"nombre":"OMP","codigo":"OMP71","rpu":"","demanda":0,"cod":"1-ago-2025","codReal":"8/1/2025","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Tlalnepantla","edo":"Estado de México","zona":"CENTRO","lat":19.552,"lng":-99.186,"kw":500,"kwh":1118,"precio":471056,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"8/1/2025","ubic":"Tlalnepantla, Estado de México","codPlanY":"2025","codRealY":"2025","codPlanYM":202508,"codRealYM":202508,"codPlanTxt":"ago 2025","codRealTxt":"ago 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":72,"nombre":"Nippon Seiki","codigo":"NSNA72","rpu":"","demanda":0,"cod":"31-may-2025","codReal":"6/1/2025","fase":"O&M","tipo":"Compra-Venta","giro":"Fabricación de Autopartes","ciudad":"Guadalupe","edo":"Nuevo León","zona":"NORTE","lat":25.696,"lng":-100.132,"kw":1000,"kwh":2236,"precio":896269,"batMarca":"CATL","batModelo":"M52280-E","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"6/1/2025","ubic":"Guadalupe, Nuevo León","codPlanY":"2025","codRealY":"2025","codPlanYM":202505,"codRealYM":202506,"codPlanTxt":"may 2025","codRealTxt":"jun 2025","codY":"2025","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":73,"nombre":"Erreka México","codigo":"ERK73","rpu":"","demanda":0,"cod":"31-dic-2025","codReal":"2/19/2026","fase":"O&M","tipo":"SaaS","giro":"Empresa de Soluciones de Automatización","ciudad":"El Colorado","edo":"Querétaro","zona":"BAJÍO","lat":20.563,"lng":-100.286,"kw":600,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"M52280-E","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"2/19/2026","ubic":"El Colorado, Querétaro","codPlanY":"2025","codRealY":"2026","codPlanYM":202512,"codRealYM":202602,"codPlanTxt":"dic 2025","codRealTxt":"feb 2026","codY":"2026","bateria":"CATL M52280-E","inversor":"KEHUA ×1"},{"num":74,"nombre":"Polymerida Mérida","codigo":"PMM74","rpu":"","demanda":0,"cod":"1-ago-2025","codReal":"8/1/2025","fase":"O&M","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Mérida","edo":"Yucatán","zona":"SURESTE","lat":20.916,"lng":-89.711,"kw":1000,"kwh":2236,"precio":821580,"batMarca":"CATL","batModelo":"R08306P05L31","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"8/1/2025","ubic":"Mérida, Yucatán","codPlanY":"2025","codRealY":"2025","codPlanYM":202508,"codRealYM":202508,"codPlanTxt":"ago 2025","codRealTxt":"ago 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":75,"nombre":"Xcanatun","codigo":"XTU75","rpu":"","demanda":0,"cod":"15-ago-2025","codReal":"8/19/2025","fase":"O&M","tipo":"SaaS","giro":"Hotel","ciudad":"Merida","edo":"Yucatán","zona":"SURESTE","lat":21.075,"lng":-89.628,"kw":400,"kwh":1118,"precio":442768,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"8/19/2025","ubic":"Merida, Yucatán","codPlanY":"2025","codRealY":"2025","codPlanYM":202508,"codRealYM":202508,"codPlanTxt":"ago 2025","codRealTxt":"ago 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":76,"nombre":"Papeles Lózar","codigo":"PLR76","rpu":"","demanda":0,"cod":"1-ago-2025","codReal":"8/6/2025","fase":"O&M","tipo":"SaaS","giro":"Papelera","ciudad":"Ixtapaluca","edo":"Estado de México","zona":"CENTRO","lat":19.307,"lng":-98.884,"kw":900,"kwh":1864,"precio":659679,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"8/6/2025","ubic":"Ixtapaluca, Estado de México","codPlanY":"2025","codRealY":"2025","codPlanYM":202508,"codRealYM":202508,"codPlanTxt":"ago 2025","codRealTxt":"ago 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":77,"nombre":"Tafer","codigo":"TFR77","rpu":"","demanda":0,"cod":"24-oct-2025","codReal":"11/3/2025","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":21.232,"lng":-86.804,"kw":5000,"kwh":10000,"precio":3217254,"batMarca":"CATL","batModelo":"R08306P05L31","racks":25,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-1725K-B-HUD","invKw":1725,"fechaOp":"11/3/2025","ubic":"Cancún, Quintana Roo","codPlanY":"2025","codRealY":"2025","codPlanYM":202510,"codRealYM":202511,"codPlanTxt":"oct 2025","codRealTxt":"nov 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":78,"nombre":"Moxche","codigo":"MXE78","rpu":"","demanda":0,"cod":"29-sep-2025","codReal":"10/1/2025","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Hotel","ciudad":"Playa del Carmen","edo":"Quintana Roo","zona":"SURESTE","lat":20.66,"lng":-87.042,"kw":3500,"kwh":11926,"precio":3088938,"batMarca":"CATL","batModelo":"R08306P05L31","racks":30,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"10/1/2025","ubic":"Playa del Carmen, Quintana Roo","codPlanY":"2025","codRealY":"2025","codPlanYM":202509,"codRealYM":202510,"codPlanTxt":"sep 2025","codRealTxt":"oct 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":79,"nombre":"Europlast","codigo":"EUP79","rpu":"","demanda":0,"cod":"8-sep-2025","codReal":"9/8/2025","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Fabricación de Plástico","ciudad":"Atizapán","edo":"Estado de México","zona":"CENTRO","lat":19.556,"lng":-99.26,"kw":1400,"kwh":2982,"precio":1115118,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"9/8/2025","ubic":"Atizapán, Estado de México","codPlanY":"2025","codRealY":"2025","codPlanYM":202509,"codRealYM":202509,"codPlanTxt":"sep 2025","codRealTxt":"sep 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":80,"nombre":"Molinos La Barca F2","codigo":"MLB80","rpu":"","demanda":0,"cod":"3-dic-2025","codReal":"1-enero-2026","fase":"O&M","tipo":"Compra-Venta","giro":"Harinera","ciudad":"La Barca","edo":"Michoacán","zona":"BAJÍO","lat":20.318,"lng":-102.536,"kw":3000,"kwh":6517,"precio":2926043,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"La Barca, Michoacán","codPlanY":"2025","codRealY":"2026","codPlanYM":202512,"codRealYM":202601,"codPlanTxt":"dic 2025","codRealTxt":"ene 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":81,"nombre":"Productos La Chata","codigo":"LCA81","rpu":"","demanda":0,"cod":"31-dic-2025","codReal":"3/23/2026","fase":"O&M","tipo":"SaaS","giro":"Industria de alimentos","ciudad":"Culiacán","edo":"Sinaloa","zona":"NORTE","lat":24.782,"lng":-107.467,"kw":500,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":0,"invMarca":"","invModelo":"","invKw":0,"fechaOp":"3/23/2026","ubic":"Culiacán, Sinaloa","codPlanY":"2025","codRealY":"2026","codPlanYM":202512,"codRealYM":202603,"codPlanTxt":"dic 2025","codRealTxt":"mar 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":""},{"num":82,"nombre":"Politextil","codigo":"PTL82","rpu":"","demanda":0,"cod":"1-sep-2025","codReal":"9/1/2025","fase":"O&M","tipo":"SaaS","giro":"Textilera","ciudad":"Tultitlán","edo":"Estado de México","zona":"CENTRO","lat":19.643,"lng":-99.156,"kw":500,"kwh":1138,"precio":622354,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"9/1/2025","ubic":"Tultitlán, Estado de México","codPlanY":"2025","codRealY":"2025","codPlanYM":202509,"codRealYM":202509,"codPlanTxt":"sep 2025","codRealTxt":"sep 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":83,"nombre":"Agrotecamac","codigo":"ATC83","rpu":"","demanda":0,"cod":"23-ago-2025","codReal":"8/18/2025","fase":"O&M","tipo":"Compra-Venta","giro":"Industria del Plástico para Invernaderos","ciudad":"Tecámac","edo":"Estado de México","zona":"CENTRO","lat":19.747,"lng":-98.97,"kw":800,"kwh":1629,"precio":708130,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"EPC POWER","invModelo":"CAB1000/AC - 2L.1 | Model 50-100100","invKw":1250,"fechaOp":"","ubic":"Tecámac, Estado de México","codPlanY":"2025","codRealY":"2025","codPlanYM":202508,"codRealYM":202508,"codPlanTxt":"ago 2025","codRealTxt":"ago 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"EPC POWER ×1"},{"num":84,"nombre":"CERTE - Space Sex - Lote 7","codigo":"CESS84","rpu":"","demanda":0,"cod":"31-dic-2025","codReal":"","fase":"SIN FASE","tipo":"Compra-Venta","giro":"Granja Fotovoltaica","ciudad":"Comondú","edo":"Baja California Sur","zona":"NORTE","lat":25.371,"lng":-111.824,"kw":500,"kwh":2035,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Comondú, Baja California Sur","codPlanY":"2025","codRealY":"","codPlanYM":202512,"codRealYM":0,"codPlanTxt":"dic 2025","codRealTxt":"","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":85,"nombre":"CERTE - Unicornio Verde - Lote 76","codigo":"CEUV85","rpu":"","demanda":0,"cod":"31-dic-2025","codReal":"","fase":"SIN FASE","tipo":"Compra-Venta","giro":"Granja Fotovoltaica","ciudad":"Comondú","edo":"Baja California Sur","zona":"NORTE","lat":25.154,"lng":-111.816,"kw":500,"kwh":2035,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Comondú, Baja California Sur","codPlanY":"2025","codRealY":"","codPlanYM":202512,"codRealYM":0,"codPlanTxt":"dic 2025","codRealTxt":"","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":86,"nombre":"CERTE- La lechuza - Parcela 43","codigo":"CELL86","rpu":"","demanda":0,"cod":"31-dic-2025","codReal":"","fase":"SIN FASE","tipo":"Compra-Venta","giro":"Granja Fotovoltaica","ciudad":"Comondú","edo":"Baja California Sur","zona":"NORTE","lat":24.982,"lng":-111.855,"kw":500,"kwh":2035,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Comondú, Baja California Sur","codPlanY":"2025","codRealY":"","codPlanYM":202512,"codRealYM":0,"codPlanTxt":"dic 2025","codRealTxt":"","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":87,"nombre":"TIMSA","codigo":"TMA87","rpu":"","demanda":0,"cod":"1-oct-2025","codReal":"octubre 3, 2025","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Terminal Portuaria","ciudad":"Manzanillo","edo":"Colima","zona":"CENTRO","lat":19.061,"lng":-104.291,"kw":500,"kwh":1118,"precio":476311,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"10/3/2025","ubic":"Manzanillo, Colima","codPlanY":"2025","codRealY":"2025","codPlanYM":202510,"codRealYM":202510,"codPlanTxt":"oct 2025","codRealTxt":"oct 2025","codY":"2025","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":88,"nombre":"Envases TP - Fase 2","codigo":"ETP88","rpu":"","demanda":0,"cod":"18-ene-2026","codReal":"abril 1, 2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Industria del Plástico","ciudad":"Papalotla","edo":"Tlaxcala","zona":"CENTRO","lat":19.161,"lng":-98.23,"kw":2000,"kwh":4073.4,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":10,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"4/1/2026","ubic":"Papalotla, Tlaxcala","codPlanY":"2026","codRealY":"2026","codPlanYM":202601,"codRealYM":202604,"codPlanTxt":"ene 2026","codRealTxt":"abr 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×2"},{"num":89,"nombre":"Walmart - Villahermosa","codigo":"WVT89","rpu":"","demanda":0,"cod":"16-feb-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"Compra-Venta","giro":"Centro de Distribución de Alimentos Marinos","ciudad":"Villahermosa","edo":"Tabasco","zona":"SUR","lat":17.984,"lng":-93.196,"kw":6000,"kwh":13472,"precio":0,"batMarca":"CATL","batModelo":"M52280-E","racks":36,"nInv":8,"invMarca":"EPC POWER","invModelo":"CAB1000/AC - 3L.2 | Model 50-100181","invKw":1500,"fechaOp":"","ubic":"Villahermosa, Tabasco","codPlanY":"2026","codRealY":"","codPlanYM":202602,"codRealYM":0,"codPlanTxt":"feb 2026","codRealTxt":"","codY":"2026","bateria":"CATL M52280-E","inversor":"EPC POWER ×8"},{"num":90,"nombre":"Coppel Corporativo","codigo":"CPL290","rpu":"","demanda":0,"cod":"24-oct-2025","codReal":"10/31/2026","fase":"CIERRE Y CAP","tipo":"Compra-Venta","giro":"Centro Corporativo","ciudad":"Culiacán","edo":"Sinaloa","zona":"NORTE","lat":24.795,"lng":-107.422,"kw":400,"kwh":1118,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"","ubic":"Culiacán, Sinaloa","codPlanY":"2025","codRealY":"2026","codPlanYM":202510,"codRealYM":202610,"codPlanTxt":"oct 2025","codRealTxt":"oct 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":91,"nombre":"Moon Palace F2","codigo":"MP291","rpu":"","demanda":0,"cod":"28-feb-2026","codReal":"8-mayo-2026","fase":"CIERRE Y CAP","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Cancún","edo":"Quintana Roo","zona":"SURESTE","lat":20.984,"lng":-86.867,"kw":8625,"kwh":26067,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":64,"nInv":5,"invMarca":"KEHUA","invModelo":"BCS-1725K-B-HUD","invKw":1725,"fechaOp":"","ubic":"Cancún, Quintana Roo","codPlanY":"2026","codRealY":"2026","codPlanYM":202602,"codRealYM":202605,"codPlanTxt":"feb 2026","codRealTxt":"may 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×5"},{"num":92,"nombre":"Mane Lote 7 y 8","codigo":"MNE92","rpu":"","demanda":0,"cod":"24-nov-2025","codReal":"febrero 2, 2026","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Fábrica de Sabores y Fragancia","ciudad":"Lerma","edo":"Estado de México","zona":"CENTRO","lat":19.308,"lng":-99.536,"kw":500,"kwh":1138,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"2/2/2026","ubic":"Lerma, Estado de México","codPlanY":"2025","codRealY":"2026","codPlanYM":202511,"codRealYM":202602,"codPlanTxt":"nov 2025","codRealTxt":"feb 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":93,"nombre":"Mane Lote 9","codigo":"MNE93","rpu":"","demanda":0,"cod":"24-nov-2025","codReal":"febrero 2, 2026","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Fábrica de Sabores y Fragancia","ciudad":"Lerma","edo":"Estado de México","zona":"CENTRO","lat":19.308,"lng":-99.536,"kw":300,"kwh":759,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":2,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"2/2/2026","ubic":"Lerma, Estado de México","codPlanY":"2025","codRealY":"2026","codPlanYM":202511,"codRealYM":202602,"codPlanTxt":"nov 2025","codRealTxt":"feb 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×2"},{"num":94,"nombre":"AIM Solder","codigo":"AIM94","rpu":"","demanda":0,"cod":"25-ene-2026","codReal":"marzo 9, 2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Planta de Aleaciones de Soldadura","ciudad":"Ciudad Juárez","edo":"Chihuahua","zona":"NORTE","lat":31.614,"lng":-106.365,"kw":800,"kwh":1629,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"3/9/2026","ubic":"Ciudad Juárez, Chihuahua","codPlanY":"2026","codRealY":"2026","codPlanYM":202601,"codRealYM":202603,"codPlanTxt":"ene 2026","codRealTxt":"mar 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":95,"nombre":"Corporativo Hospitales","codigo":"CHO95","rpu":"","demanda":0,"cod":"25-ene-2026","codReal":"Cancelado","fase":"CANCELADO","tipo":"SaaS","giro":"Hospital","ciudad":"Boca del Río","edo":"Veracruz","zona":"CENTRO","lat":0,"lng":0,"kw":1500,"kwh":3258,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"Cancelado","ubic":"Boca del Río, Veracruz","codPlanY":"2026","codRealY":"","codPlanYM":202601,"codRealYM":0,"codPlanTxt":"ene 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":96,"nombre":"Grupak","codigo":"GPK96","rpu":"","demanda":0,"cod":"6-mar-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Planta Papelera","ciudad":"Cuernavaca","edo":"Morelos","zona":"CENTRO","lat":18.911,"lng":-99.214,"kw":7000,"kwh":16292,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":40,"nInv":10,"invMarca":"EPC POWER","invModelo":"CAB1000/AC - 3L.2 | Model 50-100181","invKw":1500,"fechaOp":"En construcción","ubic":"Cuernavaca, Morelos","codPlanY":"2026","codRealY":"","codPlanYM":202603,"codRealYM":0,"codPlanTxt":"mar 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"EPC POWER ×10"},{"num":98,"nombre":"Textiles Marie Lou TML2","codigo":"TML101","rpu":"","demanda":0,"cod":"17-feb-2026","codReal":"abril 23, 2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.075,"lng":-98.154,"kw":1100,"kwh":2444,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"4/23/2026","ubic":"Puebla, Puebla","codPlanY":"2026","codRealY":"2026","codPlanYM":202602,"codRealYM":202604,"codPlanTxt":"feb 2026","codRealTxt":"abr 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":99,"nombre":"Pernod Ricard","codigo":"PER97","rpu":"","demanda":0,"cod":"15-feb-2026","codReal":"1-julio-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Tequilera","ciudad":"Arandas","edo":"Jalisco","zona":"BAJÍO","lat":20.686,"lng":-102.348,"kw":800,"kwh":1629,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"En construcción","ubic":"Arandas, Jalisco","codPlanY":"2026","codRealY":"2026","codPlanYM":202602,"codRealYM":202607,"codPlanTxt":"feb 2026","codRealTxt":"jul 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":102,"nombre":"Universidad Anahuac","codigo":"UAH105","rpu":"","demanda":0,"cod":"28-feb-2026","codReal":"1-junio-2026","fase":"CIERRE Y CAP","tipo":"Compra-Venta","giro":"Universidad","ciudad":"Naucalpan","edo":"Estado de México","zona":"CENTRO","lat":19.402,"lng":-99.262,"kw":1300,"kwh":2851,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":7,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Naucalpan, Estado de México","codPlanY":"2026","codRealY":"2026","codPlanYM":202602,"codRealYM":202606,"codPlanTxt":"feb 2026","codRealTxt":"jun 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":103,"nombre":"Miromex","codigo":"MIX108","rpu":"","demanda":0,"cod":"9-mar-2026","codReal":"26-abril-2026","fase":"CIERRE Y CAP","tipo":"Compra-Venta","giro":"Fabricación de Plástico","ciudad":"Ecatepec","edo":"Estado de México","zona":"CENTRO","lat":19.52,"lng":-99.071,"kw":500,"kwh":1222,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"","ubic":"Ecatepec, Estado de México","codPlanY":"2026","codRealY":"2026","codPlanYM":202603,"codRealYM":202604,"codPlanTxt":"mar 2026","codRealTxt":"abr 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":104,"nombre":"Plasticos y Geomembranas","codigo":"PYG104","rpu":"","demanda":0,"cod":"14-feb-2026","codReal":"15-mayo-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Fabricación de Plástico","ciudad":"Mazatlán","edo":"Sinaloa","zona":"NORTE","lat":23.191,"lng":-106.282,"kw":1300,"kwh":2851,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":7,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"En construcción","ubic":"Mazatlán, Sinaloa","codPlanY":"2026","codRealY":"2026","codPlanYM":202602,"codRealYM":202605,"codPlanTxt":"feb 2026","codRealTxt":"may 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":105,"nombre":"Citrusper","codigo":"CPR106","rpu":"","demanda":0,"cod":"17-mar-2026","codReal":"12-junio-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Industria de Frutas","ciudad":"Martínez de la Torre","edo":"Veracruz","zona":"CENTRO","lat":20.069,"lng":-97.01,"kw":800,"kwh":1629,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Martínez de la Torre, Veracruz","codPlanY":"2026","codRealY":"2026","codPlanYM":202603,"codRealYM":202606,"codPlanTxt":"mar 2026","codRealTxt":"jun 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":106,"nombre":"Tauro Textil","codigo":"TAU109","rpu":"","demanda":0,"cod":"22-mar-2026","codReal":"9-junio-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Textilera","ciudad":"Puebla","edo":"Puebla","zona":"CENTRO","lat":19.081,"lng":-98.15,"kw":1500,"kwh":3258,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Puebla, Puebla","codPlanY":"2026","codRealY":"2026","codPlanYM":202603,"codRealYM":202606,"codPlanTxt":"mar 2026","codRealTxt":"jun 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":107,"nombre":"Leo Plasticos","codigo":"LST107","rpu":"","demanda":0,"cod":"23-mar-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Fabricación de Plástico","ciudad":"Guadalupe","edo":"Nuevo León","zona":"NORTE","lat":25.657,"lng":-100.18,"kw":1000,"kwh":2037,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Guadalupe, Nuevo León","codPlanY":"2026","codRealY":"","codPlanYM":202603,"codRealYM":0,"codPlanTxt":"mar 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":108,"nombre":"Pimsa","codigo":"PIM110","rpu":"","demanda":0,"cod":"24-mar-2026","codReal":"1-julio-2026","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Fabricación de productos de Hierro","ciudad":"Santa Catarina","edo":"Nuevo León","zona":"NORTE","lat":25.678,"lng":-100.426,"kw":1000,"kwh":2037,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Santa Catarina, Nuevo León","codPlanY":"2026","codRealY":"2026","codPlanYM":202603,"codRealYM":202607,"codPlanTxt":"mar 2026","codRealTxt":"jul 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":109,"nombre":"Omnigreen","codigo":"OMNI111","rpu":"","demanda":0,"cod":"24-mar-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Reciclaje de Plástico","ciudad":"Río Blanco","edo":"Veracruz","zona":"CENTRO","lat":18.84,"lng":-97.138,"kw":1600,"kwh":3258,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Río Blanco, Veracruz","codPlanY":"2026","codRealY":"","codPlanYM":202603,"codRealYM":0,"codPlanTxt":"mar 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":110,"nombre":"Nippon Seiki Planta 1","codigo":"NSNA100","rpu":"","demanda":0,"cod":"3-abr-2026","codReal":"1-junio-2026","fase":"CIERRE Y CAP","tipo":"Compra-Venta","giro":"Fabricación de Autopartes","ciudad":"Guadalupe","edo":"Nuevo León","zona":"NORTE","lat":25.696,"lng":-100.132,"kw":1000,"kwh":2037,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Guadalupe, Nuevo León","codPlanY":"2026","codRealY":"2026","codPlanYM":202604,"codRealYM":202606,"codPlanTxt":"abr 2026","codRealTxt":"jun 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":111,"nombre":"Mead Johnson","codigo":"MJH113","rpu":"","demanda":0,"cod":"30-abr-2026","codReal":"4-abril-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Productos de Salud","ciudad":"Delicias","edo":"Chihuahua","zona":"NORTE","lat":28.154,"lng":-105.433,"kw":4400,"kwh":9975,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":24,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Delicias, Chihuahua","codPlanY":"2026","codRealY":"2026","codPlanYM":202604,"codRealYM":202604,"codPlanTxt":"abr 2026","codRealTxt":"abr 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":112,"nombre":"Hyatt Ziva","codigo":"HHZV115","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"1-julio-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Hotel","ciudad":"Benito Juárez","edo":"Quintana Roo","zona":"SURESTE","lat":20.895,"lng":-86.859,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Benito Juárez, Quintana Roo","codPlanY":"2026","codRealY":"2026","codPlanYM":202606,"codRealYM":202607,"codPlanTxt":"jun 2026","codRealTxt":"jul 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":113,"nombre":"Hyatt Zilara","codigo":"HZCN116","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"1-julio-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Hotel","ciudad":"Puerto Morelos","edo":"Quintana Roo","zona":"SURESTE","lat":20.696,"lng":-87.016,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Puerto Morelos, Quintana Roo","codPlanY":"2026","codRealY":"2026","codPlanYM":202606,"codRealYM":202607,"codPlanTxt":"jun 2026","codRealTxt":"jul 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":114,"nombre":"Dreams Sapphire","codigo":"HDSH117","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Hotel","ciudad":"Benito Juárez","edo":"Quintana Roo","zona":"SURESTE","lat":20.879,"lng":-86.866,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":8,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Benito Juárez, Quintana Roo","codPlanY":"2026","codRealY":"","codPlanYM":202606,"codRealYM":0,"codPlanTxt":"jun 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":115,"nombre":"Hilton Mar Caribe","codigo":"HMCC118","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Hotel","ciudad":"Puerto Morelos","edo":"Quintana Roo","zona":"SURESTE","lat":21.072,"lng":-86.777,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":10,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Puerto Morelos, Quintana Roo","codPlanY":"2026","codRealY":"","codPlanYM":202606,"codRealYM":0,"codPlanTxt":"jun 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×2"},{"num":116,"nombre":"Puerto Cancún","codigo":"PTCN114","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"1-julio-2026","fase":"CIERRE Y CAP","tipo":"SaaS","giro":"Plaza Comercial y Entretenimiento","ciudad":"Benito Juárez","edo":"Quintana Roo","zona":"SURESTE","lat":21.16,"lng":-86.808,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Benito Juárez, Quintana Roo","codPlanY":"2026","codRealY":"2026","codPlanYM":202606,"codRealYM":202607,"codPlanTxt":"jun 2026","codRealTxt":"jul 2026","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":117,"nombre":"Four Seasons Punta Mita","codigo":"FSS130","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"","fase":"CONSTRUCCIÓN","tipo":"SaaS","giro":"Hotel","ciudad":"Bahía de Banderas","edo":"Nayarit","zona":"OCCIDENTE","lat":20.781,"lng":-105.529,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"","ubic":"Bahía de Banderas, Nayarit","codPlanY":"2026","codRealY":"","codPlanYM":202606,"codRealYM":0,"codPlanTxt":"jun 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":118,"nombre":"Generación Industrial (GI)","codigo":"GI131","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"","fase":"SIN FASE","tipo":"Compra-Venta","giro":"Fabricación de Plástico","ciudad":"León","edo":"Guanajuato","zona":"BAJÍO","lat":21.062,"lng":-101.686,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":10,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"León, Guanajuato","codPlanY":"2026","codRealY":"","codPlanYM":202606,"codRealYM":0,"codPlanTxt":"jun 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":119,"nombre":"Ecobolsas","codigo":"ECOB119","rpu":"","demanda":0,"cod":"30-jun-2026","codReal":"","fase":"SIN FASE","tipo":"Compra-Venta","giro":"Fabricación de Plástico","ciudad":"Arandas","edo":"Jalisco","zona":"BAJÍO","lat":20.696,"lng":-102.307,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":10,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Arandas, Jalisco","codPlanY":"2026","codRealY":"","codPlanYM":202606,"codRealYM":0,"codPlanTxt":"jun 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":120,"nombre":"Grand Velas Vallarta","codigo":"GVVT121","rpu":"","demanda":0,"cod":"31-jul-2026","codReal":"","fase":"PROCURA","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Puerto Vallarta","edo":"Jalisco","zona":"OCCIDENTE","lat":20.665,"lng":-105.26,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":5,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Puerto Vallarta, Jalisco","codPlanY":"2026","codRealY":"","codPlanYM":202607,"codRealYM":0,"codPlanTxt":"jul 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":121,"nombre":"Riviera Nayarit","codigo":"GVRN120","rpu":"","demanda":0,"cod":"31-jul-2026","codReal":"","fase":"PROCURA","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Bahía de Banderas","edo":"Nayarit","zona":"OCCIDENTE","lat":20.707,"lng":-105.301,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":6,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Bahía de Banderas, Nayarit","codPlanY":"2026","codRealY":"","codPlanYM":202607,"codRealYM":0,"codPlanTxt":"jul 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":122,"nombre":"Casa Velas","codigo":"GVCV122","rpu":"","demanda":0,"cod":"31-jul-2026","codReal":"","fase":"PROCURA","tipo":"Compra-Venta","giro":"Hotel","ciudad":"Puerto Vallarta","edo":"Jalisco","zona":"OCCIDENTE","lat":20.667,"lng":-105.256,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":2,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"","ubic":"Puerto Vallarta, Jalisco","codPlanY":"2026","codRealY":"","codPlanYM":202607,"codRealYM":0,"codPlanTxt":"jul 2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×2"},{"num":123,"nombre":"Procesir","codigo":"PRCR127","rpu":"","demanda":0,"cod":"31-08-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Industria de Frutas","ciudad":"Hermosillo","edo":"Sonora","zona":"NORTE","lat":29.02,"lng":-110.919,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Hermosillo, Sonora","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":124,"nombre":"Rancho Elixir","codigo":"REX125","rpu":"","demanda":0,"cod":"31-08-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Industria de Frutas","ciudad":"Tehuacán","edo":"Puebla","zona":"CENTRO","lat":18.481,"lng":-97.506,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":4,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Tehuacán, Puebla","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":125,"nombre":"Orotex","codigo":"ORTX128","rpu":"","demanda":0,"cod":"31-08-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Materiales de Insonorización","ciudad":"Aguascalientes","edo":"Aguascalientes","zona":"NORTE","lat":21.832,"lng":-102.28,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Aguascalientes, Aguascalientes","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":126,"nombre":"Banyan Tree Cabo Marques","codigo":"BTCM123","rpu":"","demanda":0,"cod":"31-08-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Hotel","ciudad":"Acapulco","edo":"Guerrero","zona":"SUR","lat":16.795,"lng":-99.856,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":1,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Acapulco, Guerrero","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×1"},{"num":127,"nombre":"Presidente Courtyard Merida","codigo":"PCM126","rpu":"","demanda":0,"cod":"31-08-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Hotel","ciudad":"Mérida","edo":"Yucatán","zona":"SURESTE","lat":20.986,"lng":-89.621,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":3,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-175K-B-HM-US","invKw":175,"fechaOp":"","ubic":"Mérida, Yucatán","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":128,"nombre":"Quesería Dos Lagunas","codigo":"QDL124","rpu":"","demanda":0,"cod":"31-08-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Industria de alimentos","ciudad":"Ciudad Cuauhtémoc","edo":"Chihuahua","zona":"NORTE","lat":28.729,"lng":-107.033,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":21,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Ciudad Cuauhtémoc, Chihuahua","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":129,"nombre":"Perfetti Fase 2","codigo":"PFVM137","rpu":"","demanda":0,"cod":"31-10-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Industria de Dulces","ciudad":"Toluca","edo":"Estado de México","zona":"CENTRO","lat":19.372,"lng":-99.569,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":16,"nInv":2,"invMarca":"KEHUA","invModelo":"BCS-1250K-B-HUD","invKw":1250,"fechaOp":"","ubic":"Toluca, Estado de México","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×2"},{"num":130,"nombre":"Contecon Manzanillo","codigo":"CTC137","rpu":"","demanda":0,"cod":"31-10-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Terminal Portuaria","ciudad":"Manzanillo","edo":"Colima","zona":"OCCIDENTE","lat":19.087,"lng":-104.301,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":21,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Manzanillo, Colima","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":131,"nombre":"Grupo Arcoirirs","codigo":"GPOA132","rpu":"","demanda":0,"cod":"31-10-2026","codReal":"","fase":"PROCURA","tipo":"SaaS","giro":"Fabricación de Plástico","ciudad":"Tlajomulco de Zúñiga","edo":"Jalisco","zona":"OCCIDENTE","lat":20.461,"lng":-103.446,"kw":0,"kwh":0,"precio":0,"batMarca":"CATL","batModelo":"R08306P05L31","racks":21,"nInv":3,"invMarca":"KEHUA","invModelo":"BCS-1500K-B-HUD","invKw":1500,"fechaOp":"","ubic":"Tlajomulco de Zúñiga, Jalisco","codPlanY":"2026","codRealY":"","codPlanYM":202600,"codRealYM":0,"codPlanTxt":"2026","codRealTxt":"","codY":"2026","bateria":"CATL R08306P05L31","inversor":"KEHUA ×3"},{"num":132,"nombre":"","codigo":"","rpu":"","demanda":0,"cod":"","codReal":"","fase":"SIN FASE","tipo":"Sin tipo","giro":"","ciudad":"","edo":"","zona":"SIN ZONA","lat":null,"lng":null,"kw":0,"kwh":0,"precio":0,"batMarca":"","batModelo":"","racks":0,"nInv":0,"invMarca":"","invModelo":"","invKw":0,"fechaOp":"","ubic":"","codPlanY":"","codRealY":"","codPlanYM":0,"codRealYM":0,"codPlanTxt":"","codRealTxt":"","codY":"","bateria":"","inversor":""},{"num":133,"nombre":"","codigo":"","rpu":"","demanda":0,"cod":"","codReal":"","fase":"SIN FASE","tipo":"Sin tipo","giro":"","ciudad":"","edo":"","zona":"SIN ZONA","lat":null,"lng":null,"kw":0,"kwh":0,"precio":0,"batMarca":"","batModelo":"","racks":0,"nInv":0,"invMarca":"","invModelo":"","invKw":0,"fechaOp":"","ubic":"","codPlanY":"","codRealY":"","codPlanYM":0,"codRealYM":0,"codPlanTxt":"","codRealTxt":"","codY":"","bateria":"","inversor":""}],"meta":{"fecha":"7-jul-2026","fuente":"Master Data 2.0"}}</script>
+<script>
+/* ============ MODELO ============ */
+const LS_KEY='qtx-master-v4';
+// Fases en orden de ciclo de vida, con color propio (sistema de color del dashboard)
+const FASES=[
+  {k:'PROCURA',        c:'#5b7bd5'},
+  {k:'CONSTRUCCIÓN',   c:'#e8943a'},
+  {k:'CIERRE Y CAP',   c:'#0bb39a'},
+  {k:'O&M',            c:'#2e9e5b'},
+  {k:'FUERA OPERACIÓN',c:'#8a97a0'},
+  {k:'CANCELADO',      c:'#b8544a'},
+  {k:'SIN FASE',       c:'#c3ccd1'}
+];
+const FASE_ACTIVA=['PROCURA','CONSTRUCCIÓN','CIERRE Y CAP','O&M'];
+const faseColor=f=>(FASES.find(x=>x.k===f)||FASES[6]).c;
+
+let projects=[];
+let meta={fecha:'',fuente:''};
+let filtros={fase:null,zona:null,tipo:null};
+let sortKey='nombre', sortDir=1;
+let mapObj=null, layer=null;
+const charts={};
+
+/* ============ HELPERS ============ */
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.round(n).toLocaleString('es-MX');
+const usd=n=> n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : n>0 ? '$'+fmt(n) : '—';
+const stripAcc=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const normH=s=>stripAcc(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+const num=s=>{ const n=parseFloat(String(s??'').replace(/[$%\s]/g,'').replace(/,/g,'')); return isNaN(n)?0:n; };
+const MES_TXT=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function parseFecha(str){
+  const s=stripAcc(String(str||'')).toLowerCase().trim();
+  if(!s||s==='tbd') return null;
+  const ym=s.match(/20\d\d/); if(!ym) return null;
+  let m=0;
+  const iso=s.match(/20\d\d-(\d{1,2})-\d{1,2}/);
+  const us=s.match(/(\d{1,2})\/(\d{1,2})\/\d{2,4}/);
+  if(iso) m=+iso[1];
+  else if(us) m=+us[1];
+  else{
+    const EN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    for(let i=0;i<12;i++){ if(s.includes(EN[i])||s.includes(MES_TXT[i])){ m=i+1; break; } }
+  }
+  return {y:+ym[0], m: m>=1&&m<=12 ? m : 0};
+}
+const fmtFecha=f=> f ? (f.m?MES_TXT[f.m-1]+' '+f.y:String(f.y)) : '';
+function visible(){
+  return projects.filter(p=>
+    (!filtros.fase || p.fase===filtros.fase) &&
+    (!filtros.zona || p.zona===filtros.zona) &&
+    (!filtros.tipo || p.tipo===filtros.tipo));
+}
+
+/* ============ PARSER DEL MASTER DATA ============ */
+function parseCSV(text){
+  const rows=[]; let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cur);cur=''; }
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&text[i+1]==='\n') i++;
+      row.push(cur);cur=''; rows.push(row); row=[]; }
+    else cur+=ch;
+  }
+  row.push(cur); rows.push(row);
+  return rows;
+}
+// El Master Data trae filas de encabezado múltiples: se localiza la fila real por "No. de Proyecto"
+const COLMAP={
+  nodeproyecto:'num', nombrecomercial:'nombre', codigodeproyecto:'codigo',
+  codplaneado:'cod', arearesponsable:'fase', tipodeproyecto:'tipo', giro:'giro',
+  ciudad:'ciudad', estado:'edo', zona:'zona', latitud:'lat', longitud:'lng',
+  rpu:'rpu', codreal:'codReal',
+  marcabaterias:'batMarca', modelobateria:'batModelo',
+  noderacks:'racks', noinversores:'nInv', marcainversor:'invMarca', modelo:'invModelo',
+  potenciakw:'invKw', fechadeoperacioncomercial:'fechaOp'
+};
+function mapHeader(h){
+  if(h.startsWith('preciodeventa')) return 'precio';
+  if(h.startsWith('potencianominal')) return 'kw';
+  if(h.startsWith('capacidadnominal')) return 'kwh';
+  if(h.startsWith('demandacontratada')) return 'demanda';
+  return COLMAP[h]||null;
+}
+function masterToProjects(rows){
+  const hIdx=rows.findIndex(r=>normH(r[0])==='nodeproyecto');
+  if(hIdx<0) throw new Error('No se encontró la fila de encabezados ("No. de Proyecto"). ¿Es la pestaña Master Data?');
+  // Fecha de actualización en las filas previas
+  let fecha='';
+  for(let i=0;i<hIdx;i++){ const c=(rows[i][0]||'').trim();
+    if(/^\d{1,2}[-\/][a-z]{3,}\.?[-\/]\d{2,4}$/i.test(c)||/^\d{1,2}\s+de\s+\w+/i.test(c)) fecha=c; }
+  const keys=rows[hIdx].map(h=>mapHeader(normH(h)));
+  const out=[];
+  rows.slice(hIdx+1).forEach(r=>{
+    if(!String(r[0]||'').trim()) return;
+    const p={num:0,nombre:'',codigo:'',rpu:'',demanda:0,cod:'',codReal:'',fase:'SIN FASE',tipo:'',giro:'',ciudad:'',edo:'',zona:'SIN ZONA',
+      lat:null,lng:null,kw:0,kwh:0,precio:0,batMarca:'',batModelo:'',racks:0,nInv:0,invMarca:'',invModelo:'',invKw:0,fechaOp:''};
+    keys.forEach((k,i)=>{
+      if(!k||i>=r.length) return;
+      const val=String(r[i]).trim();
+      if(['kw','kwh','precio','racks','nInv','invKw','num','demanda'].includes(k)) p[k]=num(val);
+      else if(k==='lat'||k==='lng') p[k]= val===''? null : num(val);
+      else p[k]=val;
+    });
+    // Normalizaciones
+    const f=stripAcc(p.fase).toUpperCase().trim();
+    p.fase = f.startsWith('PROCURA')?'PROCURA'
+      : f.startsWith('CONSTRUC')?'CONSTRUCCIÓN'
+      : f.startsWith('CIERRE')?'CIERRE Y CAP'
+      : f==='O&M'||f.startsWith('OM')||f.includes('O&M')?'O&M'
+      : f.startsWith('FUERA')?'FUERA OPERACIÓN'
+      : f.startsWith('CANCEL')?'CANCELADO':'SIN FASE';
+    p.zona = stripAcc(p.zona).toUpperCase().trim()||'SIN ZONA';
+    if(p.zona==='BAJIO') p.zona='BAJÍO';
+    p.tipo = p.tipo.trim()||'Sin tipo';
+    p.ubic = [p.ciudad,p.edo].filter(Boolean).join(', ');
+    const fp=parseFecha(p.cod), fr=parseFecha(p.codReal);
+    p.codPlanY=fp?String(fp.y):'';   p.codRealY=fr?String(fr.y):'';
+    p.codPlanYM=fp?fp.y*100+fp.m:0;  p.codRealYM=fr?fr.y*100+fr.m:0;
+    p.codPlanTxt=fmtFecha(fp);       p.codRealTxt=fmtFecha(fr);
+    p.codY=p.codRealY||p.codPlanY;
+    p.bateria=[p.batMarca,p.batModelo].filter(Boolean).join(' ');
+    p.inversor=p.invMarca?(p.invMarca+(p.nInv?' ×'+p.nInv:'')):'';
+    out.push(p);
+  });
+  return {projects:out,fecha};
+}
+
+/* ============ CARGA / IMPORT / EXPORT ============ */
+function setSrc(msg){ $('src-txt').textContent=msg; }
+function cacheSave(){ try{ localStorage.setItem(LS_KEY,JSON.stringify({projects,meta,ts:new Date().toISOString()})); }catch(e){} }
+function loadData(){
+  try{ const ls=localStorage.getItem(LS_KEY); if(ls){ const d=JSON.parse(ls);
+    if(Array.isArray(d.projects)&&d.projects.length){ projects=d.projects; meta=d.meta||meta;
+      setSrc('CSV importado · '+projects.length+' proyectos'+(meta.fecha?' · Master del '+meta.fecha:'')); return; } } }catch(e){}
+  try{ const emb=$('qtx-data').textContent.trim(); if(emb){ const d=JSON.parse(emb);
+    projects=d.projects; meta=d.meta||meta;
+    setSrc('Master Data'+(meta.fecha?' del '+meta.fecha:'')+' · '+projects.length+' proyectos'); } }catch(e){}
+}
+function importCSV(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const res=masterToProjects(parseCSV(r.result));
+      projects=res.projects; meta={fecha:res.fecha,fuente:f.name};
+      cacheSave(); renderAll();
+      setSrc('CSV importado · '+projects.length+' proyectos'+(res.fecha?' · Master del '+res.fecha:''));
+    }catch(e){ alert('Error al importar: '+e.message); }
+    ev.target.value='';
+  };
+  r.readAsText(f);
+}
+function exportCSV(){
+  const esc=s=>{ s=String(s??''); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const head=['No.','Código','RPU','Nombre Comercial','Fase','Zona','Tipo','Giro','Ciudad','Estado','Potencia kW','Capacidad kWh','Demanda CFE kW','Precio USD','COD Planeado','COD Real','Link mapa','Marca Batería','Modelo Batería','Racks','Marca Inversor','No. Inversores','Latitud','Longitud'];
+  const rows=filteredRows().map(p=>[p.num,p.codigo,p.rpu,p.nombre,p.fase,p.zona,p.tipo,p.giro,p.ciudad,p.edo,p.kw,p.kwh,p.demanda||'',p.precio,p.cod,p.codReal,(p.lat!=null&&p.lng!=null?'https://www.google.com/maps?q='+p.lat+','+p.lng:''),p.batMarca,p.batModelo,p.racks||'',p.invMarca,p.nInv||'',p.lat??'',p.lng??'']);
+  const csv='\ufeff'+[head,...rows].map(r=>r.map(esc).join(',')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='master_qtx_vista_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},400);
+}
+
+/* ============ KPIs ============ */
+function renderKPIs(){
+  const v=visible();
+  const act=v.filter(p=>FASE_ACTIVA.includes(p.fase));
+  const om=v.filter(p=>p.fase==='O&M');
+  const ejec=v.filter(p=>['PROCURA','CONSTRUCCIÓN','CIERRE Y CAP'].includes(p.fase));
+  const kw=act.reduce((s,p)=>s+p.kw,0), kwh=act.reduce((s,p)=>s+p.kwh,0);
+  const val=v.reduce((s,p)=>s+p.precio,0);
+  $('kpis').innerHTML=`
+    <div class="kpi"><div class="lab">Proyectos</div><div class="val">${v.length}</div>
+      <div class="note">${act.length} activos · ${v.length-act.length} fuera/cancelados</div></div>
+    <div class="kpi"><div class="lab">Potencia activa</div><div class="val">${(kw/1000).toFixed(1)} <small>MW</small></div>
+      <div class="note">${fmt(kw)} kW nominales</div></div>
+    <div class="kpi"><div class="lab">Capacidad activa</div><div class="val">${(kwh/1000).toFixed(1)} <small>MWh</small></div>
+      <div class="note">${fmt(kwh)} kWh nominales</div></div>
+    <div class="kpi"><div class="lab">Valor cartera</div><div class="val">${usd(val)}</div>
+      <div class="note">venta o presupuesto SaaS</div></div>
+    <div class="kpi"><div class="lab">En O&M</div><div class="val">${om.length}</div>
+      <div class="note">${(om.reduce((s,p)=>s+p.kwh,0)/1000).toFixed(1)} MWh entregados</div></div>
+    <div class="kpi"><div class="lab">En ejecución</div><div class="val">${ejec.length}</div>
+      <div class="note">${(ejec.reduce((s,p)=>s+p.kwh,0)/1000).toFixed(1)} MWh · procura→cierre</div></div>`;
+}
+
+/* ============ SALUD DEL MASTER ============ */
+const ISSUES=[
+  {k:'coords',  lab:'Sin coordenadas',            test:p=>p.lat==null||p.lng==null||(!p.lat&&!p.lng)},
+  {k:'codigo',  lab:'Sin código',                 test:p=>!p.codigo},
+  {k:'codreal', lab:'Sin COD real (op./fuera)',   test:p=>['O&M','FUERA OPERACIÓN'].includes(p.fase)&&!p.codRealY},
+  {k:'rpu',     lab:'RPU vacío',                  test:p=>!p.rpu},
+  {k:'demanda', lab:'Demanda CFE vacía',          test:p=>!p.demanda},
+  {k:'kwh',     lab:'Sin capacidad (kWh)',        test:p=>!p.kwh},
+  {k:'zona',    lab:'Sin zona',                   test:p=>p.zona==='SIN ZONA'}
+];
+let issueFilter=null;
+function renderQuality(){
+  const n=projects.length||1;
+  $('quality').innerHTML=ISSUES.map(it=>{
+    const c=projects.filter(it.test).length;
+    const sev=c===0?'var(--teal)':(c/n>=0.15?'#b8544a':'#e8943a');
+    const cls=c===0?'qchip ok':('qchip'+(issueFilter===it.k?' on':''));
+    const click=c===0?'':` onclick="toggleIssue('${it.k}')"`;
+    return `<button class="${cls}"${click}><span class="qdot" style="background:${sev}"></span>${it.lab}: <b>${c===0?'✓':c}</b></button>`;
+  }).join('');
+}
+function toggleIssue(k){ issueFilter= issueFilter===k?null:k; renderQuality(); renderTable(); }
+
+/* ============ FILTROS ============ */
+function renderFilters(){
+  const fases=FASES.map(f=>f.k).filter(k=>projects.some(p=>p.fase===k));
+  const zonas=[...new Set(projects.map(p=>p.zona))].sort();
+  const tipos=[...new Set(projects.map(p=>p.tipo))].sort();
+  $('f-fase').innerHTML=fases.map(f=>
+    `<button class="pill ${filtros.fase===f?'on':''}" onclick="toggleF('fase','${f}')"><span class="fdot" style="background:${faseColor(f)}"></span>${f}</button>`).join('');
+  $('f-zona').innerHTML=zonas.map(z=>
+    `<button class="pill ${filtros.zona===z?'on':''}" onclick="toggleF('zona','${z}')">${z}</button>`).join('');
+  $('f-tipo').innerHTML=tipos.map(t=>
+    `<button class="pill ${filtros.tipo===t?'on':''}" onclick="toggleF('tipo','${t.replace(/'/g,"\\'")}')">${t}</button>`).join('');
+}
+function toggleF(k,v){ filtros[k]= filtros[k]===v?null:v; renderAll(); }
+function clearFilters(){ filtros={fase:null,zona:null,tipo:null}; issueFilter=null; renderAll(); }
+
+/* ============ MAPA ============ */
+function renderMap(){
+  if(!mapObj){
+    mapObj=L.map('map',{scrollWheelZoom:false}).setView([22.5,-100],5);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      {attribution:'© OpenStreetMap © CARTO',maxZoom:18}).addTo(mapObj);
+    layer=L.layerGroup().addTo(mapObj);
+  }
+  layer.clearLayers();
+  const pts=[]; let sinCoord=0;
+  visible().forEach(p=>{
+    if(p.lat==null||p.lng==null||(!p.lat&&!p.lng)){ sinCoord++; return; }
+    pts.push([p.lat,p.lng]);
+    const r=3.5+Math.sqrt(Math.max(p.kwh,1))*0.28;
+    L.circleMarker([p.lat,p.lng],{radius:Math.min(r,13),fillColor:faseColor(p.fase),color:'#fff',weight:1,fillOpacity:.85})
+      .bindPopup(`<b>${p.codigo||'#'+p.num} · ${p.nombre}</b><br>${p.ubic}<br>${fmt(p.kw)} kW / ${fmt(p.kwh)} kWh<br>
+        <span style="color:${faseColor(p.fase)}">●</span> ${p.fase} · ${p.tipo}${p.rpu?'<br>RPU: '+p.rpu:''}${p.demanda?'<br>Demanda CFE: '+fmt(p.demanda)+' kW':''}${p.precio?'<br>'+usd(p.precio):''}`)
+      .addTo(layer);
+  });
+  $('map-note').textContent='Color = fase · tamaño ∝ capacidad (kWh)'+(sinCoord?' · '+sinCoord+' sitios sin coordenadas':'');
+  if((filtros.fase||filtros.zona||filtros.tipo)&&pts.length) mapObj.fitBounds(L.latLngBounds(pts).pad(0.3));
+  else if(!filtros.fase&&!filtros.zona&&!filtros.tipo) mapObj.setView([22.5,-100],5);
+}
+
+/* ============ GRÁFICAS ============ */
+function chart(id,cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart($(id),cfg); }
+const T=t=>({display:true,text:t,font:{size:13,family:'Space Grotesk'}});
+const LEG={position:'bottom',labels:{font:{size:11},padding:10}};
+
+function renderCharts(){
+  const v=visible();
+  const view=document.body.dataset.view;
+
+  if(view==='ejec'){
+    // Capacidad por zona, apilada por fase (MWh)
+    const zonas=[...new Set(v.map(p=>p.zona))].sort();
+    const fasesZ=FASES.map(f=>f.k).filter(k=>v.some(p=>p.fase===k));
+    chart('chZona',{type:'bar',data:{labels:zonas,
+      datasets:fasesZ.map(f=>({label:f,data:zonas.map(z=>v.filter(p=>p.zona===z&&p.fase===f).reduce((s,p)=>s+p.kwh,0)/1000),
+        backgroundColor:faseColor(f),borderRadius:4,stack:'s'}))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:LEG,title:T('Capacidad por zona y fase (MWh)')},
+        scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'#eef2f3'},title:{display:true,text:'MWh',font:{size:11}}}}}});
+
+    // Mezcla por tipo (valor cartera)
+    const tipos=[...new Set(v.map(p=>p.tipo))];
+    chart('chTipo',{type:'doughnut',data:{labels:tipos,
+      datasets:[{data:tipos.map(t=>v.filter(p=>p.tipo===t).length),
+        backgroundColor:['#0bb39a','#5b7bd5','#e8943a','#c3ccd1'],borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+        plugins:{legend:LEG,title:T('Proyectos por tipo de contrato')}}});
+
+    // Top 10 por capacidad
+    const top=[...v].sort((a,b)=>b.kwh-a.kwh).slice(0,10);
+    chart('chTop',{type:'bar',data:{labels:top.map(p=>(p.codigo||'#'+p.num)+' · '+p.nombre),
+      datasets:[{label:'kWh',data:top.map(p=>p.kwh),backgroundColor:top.map(p=>faseColor(p.fase)),borderRadius:5}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},title:T('Top 10 proyectos por capacidad (kWh)')},
+        scales:{x:{grid:{color:'#eef2f3'}},y:{grid:{display:false},ticks:{font:{size:10.5}}}}}});
+
+    // Giro del cliente (top 8)
+    const giros={}; v.forEach(p=>{ const g=p.giro||'Sin giro'; giros[g]=(giros[g]||0)+1; });
+    const gTop=Object.entries(giros).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    chart('chGiro',{type:'bar',data:{labels:gTop.map(g=>g[0]),
+      datasets:[{label:'proyectos',data:gTop.map(g=>g[1]),backgroundColor:'#0bb39a',borderRadius:5}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},title:T('Giro del cliente (top 8)')},
+        scales:{x:{grid:{color:'#eef2f3'},ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+
+    // Rampa por año COD
+    const years=[...new Set(v.map(p=>p.codY).filter(Boolean))].sort();
+    let acc=0; const acum=years.map(y=>acc+=v.filter(p=>p.codY===y).reduce((s,p)=>s+p.kwh,0)/1000);
+    const fasesR=FASES.map(f=>f.k).filter(k=>v.some(p=>p.fase===k&&p.codY));
+    chart('chRampa',{data:{labels:years,datasets:[
+        ...fasesR.map(f=>({type:'bar',label:f,data:years.map(y=>v.filter(p=>p.codY===y&&p.fase===f).reduce((s,p)=>s+p.kwh,0)/1000),
+          backgroundColor:faseColor(f),borderRadius:4,stack:'s'})),
+        {type:'line',label:'Acumulado',data:acum,borderColor:'#0e1820',backgroundColor:'#0e1820',borderWidth:2,pointRadius:3,tension:.3,stack:'acum'}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:LEG,title:T('MWh por año de COD (real, o planeado si no hay) y acumulado')},
+        scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'#eef2f3'},title:{display:true,text:'MWh',font:{size:11}}}}}});
+  }
+
+  if(view==='pipe'){
+    const fasesP=FASES.map(f=>f.k).filter(k=>v.some(p=>p.fase===k));
+    chart('chFaseN',{type:'bar',data:{labels:fasesP,
+      datasets:[{label:'proyectos',data:fasesP.map(f=>v.filter(p=>p.fase===f).length),
+        backgroundColor:fasesP.map(faseColor),borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},title:T('Proyectos por fase')},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#eef2f3'},ticks:{precision:0}}}}});
+    chart('chFaseE',{type:'bar',data:{labels:fasesP,
+      datasets:[{label:'MWh',data:fasesP.map(f=>v.filter(p=>p.fase===f).reduce((s,p)=>s+p.kwh,0)/1000),
+        backgroundColor:fasesP.map(faseColor),borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},title:T('Capacidad por fase (MWh)')},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#eef2f3'}}}}});
+
+  }
+
+  if(view==='tec'){
+    const agg=(field)=>{
+      const m={};
+      v.forEach(p=>{ const k=(p[field]||'').trim(); if(!k) return;
+        m[k]=m[k]||{n:0,kwh:0}; m[k].n++; m[k].kwh+=p.kwh; });
+      return Object.entries(m).sort((a,b)=>b[1].kwh-a[1].kwh);
+    };
+    const bat=agg('batMarca');
+    chart('chBat',{type:'bar',data:{labels:bat.map(b=>b[0]),
+      datasets:[{label:'MWh',data:bat.map(b=>b[1].kwh/1000),backgroundColor:'#0bb39a',borderRadius:5}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},title:T('Baterías: capacidad por marca (MWh)'),
+          tooltip:{callbacks:{afterLabel:ctx=>bat[ctx.dataIndex][1].n+' proyectos'}}},
+        scales:{x:{grid:{color:'#eef2f3'}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+    const inv=agg('invMarca');
+    chart('chInv',{type:'bar',data:{labels:inv.map(b=>b[0]),
+      datasets:[{label:'MWh',data:inv.map(b=>b[1].kwh/1000),backgroundColor:'#5b7bd5',borderRadius:5}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},title:T('Inversores: capacidad por marca (MWh)'),
+          tooltip:{callbacks:{afterLabel:ctx=>inv[ctx.dataIndex][1].n+' proyectos'}}},
+        scales:{x:{grid:{color:'#eef2f3'}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  }
+}
+
+/* ============ TABLA ============ */
+function filteredRows(){
+  const q=($('search').value||'').toLowerCase();
+  const iss=issueFilter?ISSUES.find(i=>i.k===issueFilter):null;
+  return visible().filter(p=>
+    (!iss || iss.test(p)) &&
+    (!q || [p.nombre,p.codigo,p.rpu,p.ciudad,p.edo,p.giro,p.batMarca,p.invMarca,String(p.num)].join(' ').toLowerCase().includes(q)));
+}
+function renderTable(){
+  let rows=filteredRows();
+  rows.sort((a,b)=>{
+    let x=a[sortKey],y=b[sortKey];
+    if(typeof x==='string'||typeof y==='string'){
+      x=String(x??'')||'\uffff'; y=String(y??'')||'\uffff';
+      return sortDir*x.localeCompare(y,undefined,{numeric:true});
+    }
+    return sortDir*(((x==null?-Infinity:x))-((y==null?-Infinity:y)));
+  });
+  $('ptbody').innerHTML=rows.map(p=>{
+    const c=faseColor(p.fase);
+    return `<tr>
+      <td class="num">${p.num}</td>
+      <td><span class="pname">${p.codigo||'—'}</span></td>
+      <td>${p.rpu||'—'}</td>
+      <td title="${p.nombre}"><span class="pname">${p.nombre}</span></td>
+      <td><span class="badge" style="background:${c}1a;color:${c}"><span class="dot" style="background:${c}"></span>${p.fase}</span></td>
+      
+      <td>${p.zona}</td>
+      <td>${p.tipo}</td>
+      <td title="${p.giro}">${p.giro||'—'}</td>
+      <td title="${p.ubic}">${p.ubic||'—'}</td>
+      <td class="num">${p.kw?fmt(p.kw):'—'}</td>
+      <td class="num">${p.kwh?fmt(p.kwh):'—'}</td>
+      <td class="num">${p.demanda?fmt(p.demanda):'—'}</td>
+      <td class="num">${usd(p.precio)}</td>
+      <td>${p.codPlanTxt||'—'}</td>
+      <td>${p.codRealTxt||'—'}</td>
+      <td title="${p.bateria}">${p.batMarca||'—'}</td>
+      <td title="${p.invModelo}">${p.inversor||'—'}</td>
+      <td>${p.lat!=null&&p.lng!=null?'<a class=\"maplink\" target=\"_blank\" rel=\"noopener\" href=\"https://www.google.com/maps?q='+p.lat+','+p.lng+'\">📍</a>':'—'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="18" style="text-align:center;color:var(--muted);padding:30px">Sin proyectos que coincidan.</td></tr>`;
+  const kw=rows.reduce((s,p)=>s+p.kw,0), kwh=rows.reduce((s,p)=>s+p.kwh,0), val=rows.reduce((s,p)=>s+p.precio,0);
+  $('pfoot').innerHTML=`
+    <td></td><td>Total (${rows.length})</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+    <td class="num">${fmt(kw)}</td><td class="num">${fmt(kwh)}</td>
+    <td class="num">${rows.reduce((s2,p)=>s2+p.demanda,0)?fmt(rows.reduce((s2,p)=>s2+p.demanda,0)):''}</td>
+    <td class="num">${usd(val)}</td>
+    <td></td><td></td><td></td><td></td><td></td>`;
+}
+document.querySelectorAll('#ptable thead th[data-k]').forEach(th=>{
+  th.onclick=()=>{const k=th.dataset.k; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=-1;} renderTable();};
+});
+
+/* ============ VISTAS ============ */
+function setView(v){
+  document.body.dataset.view=v;
+  ['ejec','pipe','tec'].forEach(t=>$('tab-'+t).classList.toggle('active',t===v));
+  renderCharts();
+  if(v==='ejec') setTimeout(()=>{ if(mapObj){mapObj.invalidateSize();} renderMap(); },60);
+}
+
+/* ============ PDF ============ */
+// Compone el mapa como imagen estática (tiles CARTO + marcadores) para que el PDF lo capture bien
+async function mapToImage(){
+  const size=mapObj.getSize();
+  const scale=2; // nitidez
+  const z=Math.round(mapObj.getZoom());
+  const pb=mapObj.getPixelBounds();
+  const canvas=document.createElement('canvas');
+  canvas.width=size.x*scale; canvas.height=size.y*scale;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(scale,scale);
+  ctx.fillStyle='#e8edee'; ctx.fillRect(0,0,size.x,size.y);
+  const t0x=Math.floor(pb.min.x/256), t0y=Math.floor(pb.min.y/256);
+  const t1x=Math.floor(pb.max.x/256), t1y=Math.floor(pb.max.y/256);
+  const jobs=[];
+  for(let tx=t0x;tx<=t1x;tx++)for(let ty=t0y;ty<=t1y;ty++){
+    jobs.push(new Promise(res=>{
+      const img=new Image(); img.crossOrigin='anonymous';
+      const to=setTimeout(res,4000);
+      img.onload=()=>{ clearTimeout(to); try{ctx.drawImage(img,tx*256-pb.min.x,ty*256-pb.min.y,256,256);}catch(e){} res(); };
+      img.onerror=()=>{ clearTimeout(to); res(); };
+      img.src='https://a.basemaps.cartocdn.com/light_all/'+z+'/'+tx+'/'+ty+'.png';
+    }));
+  }
+  await Promise.all(jobs);
+  visible().forEach(pj=>{
+    if(pj.lat==null||pj.lng==null) return;
+    const pt=mapObj.latLngToContainerPoint([pj.lat,pj.lng]);
+    if(pt.x<-15||pt.y<-15||pt.x>size.x+15||pt.y>size.y+15) return;
+    const r=Math.min(3.5+Math.sqrt(Math.max(pj.kwh,1))*0.28,13);
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,r,0,Math.PI*2);
+    ctx.globalAlpha=.85; ctx.fillStyle=faseColor(pj.fase); ctx.fill();
+    ctx.globalAlpha=1; ctx.lineWidth=1; ctx.strokeStyle='#fff'; ctx.stroke();
+  });
+  return canvas.toDataURL('image/png');
+}
+
+async function downloadPDF(){
+  const view=document.body.dataset.view;
+  const viewName={'ejec':'Ejecutivo','pipe':'Pipeline','tec':'Técnico'}[view];
+  const elem=document.querySelector('.wrap');
+  const clone=elem.cloneNode(true);
+
+  // Encabezado del PDF
+  const header=document.createElement('div');
+  header.innerHTML=`<div style="font-family:Space Grotesk;font-size:22px;font-weight:700;margin-bottom:6px;color:#0e1820">
+    Archivo Maestro de Sitios · Vista ${viewName}</div>
+    <div style="font-size:12px;color:#6c7a82;margin-bottom:20px">
+      Generado ${new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+      ${meta.fecha?'| Master del '+meta.fecha:''} | ${filtros.fase?'Fase: '+filtros.fase:'Sin filtro de fase'}${filtros.zona?' | Zona: '+filtros.zona:''}${filtros.tipo?' | Tipo: '+filtros.tipo:''}
+    </div>
+    <div style="height:1px;background:#dce3e5;margin-bottom:20px"></div>`;
+  clone.insertBefore(header,clone.firstChild);
+
+  // Quitar controles que no aportan en papel
+  clone.querySelectorAll('.searchbar, #csvfile').forEach(el=>el.remove());
+
+  // Mantener título y contenido de cada sección en la misma página (excepto la tabla, que es más larga que una hoja)
+  clone.querySelectorAll('section').forEach(sec=>{
+    if(!sec.querySelector('#ptable')){
+      sec.style.breakInside='avoid';
+      sec.style.pageBreakInside='avoid';
+    }
+  });
+
+  // Tabla: quitar el scroll interno (recortaba a ~15 filas) y compactar para que quepan todas las columnas
+  const ts=clone.querySelector('.tablescroll');
+  if(ts){ ts.style.maxHeight='none'; ts.style.overflow='visible'; }
+  const tbl=clone.querySelector('#ptable');
+  if(tbl){
+    tbl.style.fontSize='8.5px';
+    tbl.style.tableLayout='auto';
+    clone.querySelectorAll('#ptable th, #ptable td').forEach(c=>{
+      c.style.whiteSpace='normal'; c.style.maxWidth='none'; c.style.padding='5px 4px';
+    });
+    // Columna "Mapa" (link) no aporta en papel: se elimina por índice
+    const ths=[...tbl.querySelectorAll('thead th')];
+    const idx=ths.findIndex(th=>th.textContent.trim()==='Mapa');
+    if(idx>=0){
+      ths[idx].remove();
+      tbl.querySelectorAll('tbody tr, tfoot tr').forEach(tr=>{
+        if(tr.children[idx]) tr.children[idx].remove();
+      });
+    }
+  }
+
+  // 1) Gráficas: los <canvas> clonados quedan en blanco -> sustituir por imagen del canvas real
+  clone.querySelectorAll('canvas').forEach(c=>{
+    const src=document.getElementById(c.id);
+    if(src && src.width>0 && charts[c.id]){
+      try{
+        const img=document.createElement('img');
+        img.src=src.toDataURL('image/png');
+        img.style.cssText='width:100%;height:auto;display:block';
+        c.parentElement.style.minHeight='0';
+        c.replaceWith(img);
+        return;
+      }catch(e){}
+    }
+    c.replaceWith(document.createTextNode(''));
+  });
+
+  // 2) Mapa: sustituir el div de Leaflet por una imagen compuesta de tiles + marcadores
+  const mapDiv=clone.querySelector('#map');
+  if(mapDiv){
+    if(view==='ejec' && mapObj){
+      try{
+        const data=await mapToImage();
+        const img=document.createElement('img');
+        img.src=data;
+        img.style.cssText='width:100%;height:auto;display:block';
+        mapDiv.replaceWith(img);
+      }catch(e){ mapDiv.remove(); }
+    } else mapDiv.remove();
+  }
+
+  const opt={
+    margin:10,
+    filename:'master_qtx_'+viewName.toLowerCase()+'_'+new Date().toISOString().slice(0,10)+'.pdf',
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,logging:false,useCORS:true,backgroundColor:'#ffffff'},
+    jsPDF:{orientation:'portrait',unit:'mm',format:'a4'},
+    pagebreak:{mode:['css','legacy'],avoid:['.kpi','img','tr','.sec-h']}
+  };
+
+  try{
+    document.body.style.opacity='0.6';
+    await html2pdf().set(opt).from(clone).save();
+    document.body.style.opacity='1';
+  }catch(e){
+    console.error('Error PDF:',e);
+    alert('Error al generar PDF: '+e.message);
+    document.body.style.opacity='1';
+  }
+}
+
+/* ============ RENDER + INIT ============ */
+function renderAll(){ renderKPIs();renderFilters();renderQuality();renderCharts();renderTable(); if(document.body.dataset.view==='ejec') renderMap(); }
+loadData();
+renderAll();
+setTimeout(()=>mapObj&&mapObj.invalidateSize(),300);
+</script>
+</body>
+</html>
